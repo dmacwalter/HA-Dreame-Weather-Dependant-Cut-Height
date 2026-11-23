@@ -11,6 +11,7 @@
     "recorder",
     "weather"
   ],
+  "categories": ["garden_plants"],
   "codeowners": ["@dmacwalter"],
   "config_flow": true,
   "documentation": "https://github.com/dmacwalter/HA-Dreame-Weather-Dependant-Cut-Height",
