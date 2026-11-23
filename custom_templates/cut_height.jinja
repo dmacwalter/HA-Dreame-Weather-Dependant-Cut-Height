@@ -113,12 +113,19 @@
 {%- endmacro %}
 
 {#- Live inputs. Replace these sources if yours differ; each can be missing or unavailable:
+      sensor.cut_height_station_history           your weather station's daily max/min/mean
+                                                  and rain, from the recorder (package)
       sensor.cut_height_bom_forecast              BOM daily forecast (max/min), from the package
       sensor.belgian_gardens_warnings             BOM warnings for your location
       sensor.smart_irrigation_raised_lawn_bucket  Smart Irrigation water balance (mm)
       sensor.gw3000c_24h_rain_piezo               your own rain gauge, last 24 h (mm)
-    The BOM forecast replaces Open-Meteo's max/min for today and the days ahead; past days
-    stay on Open-Meteo, which also supplies rain history and evapotranspiration. -#}
+    Per day, the first source that has a value wins:
+      past days   temperature and rain: station, else Open-Meteo
+      today       max/min: BOM, else Open-Meteo; mean: Open-Meteo (a full-day figure,
+                  where the station only has the day so far); rain: station so far
+      days ahead  max/min: BOM, else Open-Meteo
+    Evapotranspiration always comes from Open-Meteo (it is only used when the Smart
+    Irrigation water balance is unavailable). -#}
 {% macro cut_height_plan_live() -%}
 {%- set om = states.sensor.cut_height_weather.attributes if states.sensor.cut_height_weather else {} -%}
 {%- set today = now().date() | string -%}
@@ -129,13 +136,26 @@
 {%- else -%}
 {%- set bom = state_attr('sensor.cut_height_bom_forecast', 'forecast') -%}
 {%- set bom = bom if bom is list else [] -%}
+{%- set stn = state_attr('sensor.cut_height_station_history', 'days') -%}
+{%- set stn = stn if stn is list else [] -%}
+{%- set src = namespace(tm=[], rain=[], station=0, bom=0) -%}
 {%- for t in om.time -%}
-  {%- set b = bom | selectattr('date', 'eq', t) | list -%}
-  {%- set use = loop.index0 >= ns.i and b and b[0].max is number and b[0].min is number -%}
-  {%- set ns.tx = ns.tx + [b[0].max if use else om.temperature_2m_max[loop.index0]] -%}
-  {%- set ns.tn = ns.tn + [b[0].min if use else om.temperature_2m_min[loop.index0]] -%}
+  {%- set k = loop.index0 -%}
+  {%- set b = (bom | selectattr('date', 'eq', t) | list + [{}])[0] -%}
+  {%- set s = (stn | selectattr('date', 'eq', t) | list + [{}])[0] -%}
+  {%- set past = k < ns.i -%}
+  {%- set use_s = past and s.max is number and s.min is number and s.mean is number -%}
+  {%- set use_b = not past and b.max is number and b.min is number -%}
+  {%- set ns.tx = ns.tx + [s.max if use_s else b.max if use_b else om.temperature_2m_max[k]] -%}
+  {%- set ns.tn = ns.tn + [s.min if use_s else b.min if use_b else om.temperature_2m_min[k]] -%}
+  {%- set src.tm = src.tm + [s.mean if use_s else om.temperature_2m_mean[k]] -%}
+  {%- set use_r = k <= ns.i and s.rain is number -%}
+  {%- set src.rain = src.rain + [s.rain if use_r else om.precipitation_sum[k]] -%}
+  {%- if use_s %}{% set src.station = src.station + 1 %}{% endif -%}
+  {%- if use_b %}{% set src.bom = src.bom + 1 %}{% endif -%}
 {%- endfor -%}
-{%- set d = dict(om, temperature_2m_max=ns.tx, temperature_2m_min=ns.tn) -%}
+{%- set d = dict(om, temperature_2m_mean=src.tm, temperature_2m_max=ns.tx,
+                 temperature_2m_min=ns.tn, precipitation_sum=src.rain) -%}
 {%- set warn = state_attr('sensor.belgian_gardens_warnings', 'warnings') or [] -%}
 {%- set heat_warning = warn | map('string') | map('lower') | select('search', 'heatwave') | list | count > 0 -%}
 {%- set p = dict(
@@ -158,6 +178,6 @@
              is_state('input_boolean.cut_height_dry_spell', 'on'),
              states('input_datetime.cut_height_last_lower'),
              bucket, local_rain, heat_warning, p) | from_json,
-        bom_days=bom | count, heat_warning=heat_warning) | to_json }}
+        station_days=src.station, bom_days=src.bom, heat_warning=heat_warning) | to_json }}
 {%- endif -%}
 {%- endmacro %}

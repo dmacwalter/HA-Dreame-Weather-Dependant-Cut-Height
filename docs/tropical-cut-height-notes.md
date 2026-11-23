@@ -92,6 +92,16 @@ BOM heatwave warning current for the location counts as a heatwave on its own, w
 the 29.5 °C estimate says, because the Bureau's warning uses the full excess heat factor
 and the real local percentile.
 
+### Local measurement for past days
+
+Past days come from the weather station in the garden, through Home Assistant's
+long-term statistics, rather than from a weather model. Over 2 to 23 November 2026 the
+station and Open-Meteo agreed closely on temperature, but on 20 November the station
+measured 10.6 mm of rain and Open-Meteo reported 20.1 mm. A model can easily double or
+halve a tropical shower at one address, and the after-rain rule keys off exactly that
+figure. OpenWeatherMap History was considered and not used: it keeps only 5 past days,
+fewer than the 7-day mean needs.
+
 ### Hot day threshold
 
 34 °C is a little above Townsville's summer typical maximum (31.5 °C in January at the

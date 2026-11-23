@@ -95,10 +95,22 @@ automations as `switch.cut_height_smart`.
   forecast for the lawn's location supplies the max and min for today and the days
   ahead, and its warnings sensor flags a heatwave warning. On the day I set this up BOM
   had 31 °C for the next few days where Open-Meteo had 29.6 to 30.5 °C.
-- **[Open-Meteo](https://open-meteo.com/)** (free, no key) supplies what BOM's
-  integration doesn't: the past 21 days of temperature, rain and evapotranspiration,
-  and a forecast fallback. No location is stored in these files; the URL is built from
-  `zone.home`.
+- **Your weather station** supplies the past 21 days: daily max, min and mean
+  temperature and rain, read from Home Assistant's long-term statistics with
+  `recorder.get_statistics` (`sensor.cut_height_station_history`). Over three weeks in
+  November my Ecowitt agreed with Open-Meteo on temperature to within about 0.5 °C most
+  days, but measured 10.6 mm on the wettest day where Open-Meteo had 20.1 mm. Rain is
+  what drives the drop after heavy rain, so local measurement matters.
+- **[Open-Meteo](https://open-meteo.com/)** (free, no key) fills any day the station
+  or BOM is missing, and supplies evapotranspiration (used only when the Smart
+  Irrigation water balance is unavailable). No location is stored in these files; the
+  URL is built from `zone.home`.
+
+Per day, the first source with a value wins: past days take the station, then
+Open-Meteo; today and the days ahead take BOM's max and min, then Open-Meteo. Today's
+rain is what the station has measured so far. To use another source, change the
+entity IDs in the station-history sensor in the package, or the source list at the
+bottom of `custom_templates/cut_height.jinja`.
 - **Your own gauge and Smart Irrigation**, as below.
 
 ## Tested

@@ -169,6 +169,12 @@ sections:
       columns: 6
     name: Rain, last 24 h (gauge)
     type: tile
+  - type: tile
+    entity: sensor.cut_height_station_history
+    name: Station days on record
+    icon: mdi:weather-cloudy-clock
+    grid_options:
+      columns: 6
   - entity: input_boolean.cut_height_dry_spell
     grid_options:
       columns: 6

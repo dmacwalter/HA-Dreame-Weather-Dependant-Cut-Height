@@ -11,6 +11,8 @@
 #   number.a1_selected_zone_mowing_height  height of the zone in scope (read back)
 #   notify.mobile_app_iphone_17            your phone
 #   weather.belgian_gardens                BOM forecast (bureau_of_meteorology integration)
+#   sensor.gw3000c_outdoor_temperature,    your weather station (daily history from the
+#   sensor.gw3000c_yearly_rain_piezo       recorder's long-term statistics)
 # and, in custom_templates/cut_height.jinja, the zone list and the optional sources
 # (BOM warnings, Smart Irrigation water balance and your own rain gauge).
 #
@@ -287,6 +289,46 @@ template:
             {% set ns = namespace(out=[]) %}
             {% for f in bom['weather.belgian_gardens'].forecast %}
               {% set ns.out = ns.out + [dict(date=f.datetime[:10], max=f.temperature | default(none), min=f.templow | default(none), rain=f.precipitation | default(none))] %}
+            {% endfor %}
+            {{ ns.out }}
+
+  # Your weather station's daily max/min/mean temperature and rain for the past 22 days,
+  # from Home Assistant's long-term statistics. Replaces Open-Meteo for past days.
+  - triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: event
+        event_type: event_template_reloaded
+      - trigger: time_pattern
+        minutes: "7"
+    actions:
+      - action: recorder.get_statistics
+        data:
+          start_time: "{{ (now() - timedelta(days=22)).strftime('%Y-%m-%d 00:00:00') }}"
+          statistic_ids:
+            - sensor.gw3000c_outdoor_temperature
+            - sensor.gw3000c_yearly_rain_piezo
+          period: day
+          types:
+            - max
+            - min
+            - mean
+            - change
+        response_variable: st
+    sensor:
+      - name: Cut height station history
+        unique_id: cut_height_station_history
+        default_entity_id: sensor.cut_height_station_history
+        icon: mdi:weather-cloudy-clock
+        state: "{{ st.statistics.get('sensor.gw3000c_outdoor_temperature', []) | count }}"
+        attributes:
+          days: >
+            {% set t = st.statistics.get('sensor.gw3000c_outdoor_temperature', []) %}
+            {% set r = st.statistics.get('sensor.gw3000c_yearly_rain_piezo', []) %}
+            {% set ns = namespace(out=[]) %}
+            {% for d in t %}
+              {% set rr = r | selectattr('start', 'eq', d.start) | map(attribute='change') | list %}
+              {% set ns.out = ns.out + [dict(date=(d.start | as_datetime | as_local).date() | string, max=d.max | default(none), min=d.min | default(none), mean=(d.mean | round(2)) if d.mean is number else none, rain=(rr[0] | round(1)) if rr and rr[0] is number else none)] %}
             {% endfor %}
             {{ ns.out }}
 
