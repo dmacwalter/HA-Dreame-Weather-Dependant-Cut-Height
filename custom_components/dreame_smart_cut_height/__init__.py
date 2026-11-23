@@ -17,9 +17,7 @@ type CutHeightConfigEntry = ConfigEntry[CutHeightCoordinator]
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 ATTR_ENTRY = "config_entry_id"
-ATTR_CONFIRM = "confirm"
 BASE_SCHEMA = vol.Schema({vol.Optional(ATTR_ENTRY): cv.string})
-APPLY_SCHEMA = BASE_SCHEMA.extend({vol.Required(ATTR_CONFIRM): cv.boolean})
 
 
 @callback
@@ -40,17 +38,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         pending = await _coordinator(hass, call).async_check()
         return {"pending": pending}
 
-    async def apply(call: ServiceCall):
-        if not call.data[ATTR_CONFIRM]:
-            raise ServiceValidationError("Set confirm: true to change the mower's cut heights")
-        return {"result": await _coordinator(hass, call).async_apply()}
-
     async def skip(call: ServiceCall) -> None:
         await _coordinator(hass, call).async_skip()
 
     hass.services.async_register(DOMAIN, "check", check, BASE_SCHEMA,
-                                 supports_response=SupportsResponse.OPTIONAL)
-    hass.services.async_register(DOMAIN, "apply", apply, APPLY_SCHEMA,
                                  supports_response=SupportsResponse.OPTIONAL)
     hass.services.async_register(DOMAIN, "skip", skip, BASE_SCHEMA)
     return True

@@ -4,11 +4,13 @@
       "user": {
         "title": "Choose the mower",
         "description": "Pick the lawn mower entity from the Dreame lawn mower integration.",
-        "data": { "mower": "Mower" }
+        "data": {
+          "mower": "Mower"
+        }
       },
       "mower": {
         "title": "Mower entities",
-        "description": "These were looked up on the mower's own device; check them. The zone selector, the selected-zone height and the docked sensor are required. The calendar is the mower's schedule: without it nothing runs before a mow, but Check now and Apply now still work.",
+        "description": "These were looked up on the mower's own device; check them. The zone selector, the selected-zone height and the docked sensor are required. The calendar is the mower's schedule: without it nothing runs before a mow, but Check now still works.",
         "data": {
           "docked": "Docked sensor",
           "zone_select": "Zone selector",
@@ -21,7 +23,9 @@
       "map": {
         "title": "Mowing map",
         "description": "The map whose zones are managed. Zone heights are read and written on this map.",
-        "data": { "map_option": "Map" }
+        "data": {
+          "map_option": "Map"
+        }
       },
       "weather": {
         "title": "Weather sources",
@@ -69,7 +73,9 @@
       },
       "map": {
         "title": "Mowing map",
-        "data": { "map_option": "Map" }
+        "data": {
+          "map_option": "Map"
+        }
       },
       "weather": {
         "title": "Weather sources",
@@ -93,24 +99,22 @@
   "services": {
     "check": {
       "name": "Check now",
-      "description": "Plan from the weather, read the managed zones' heights and send any proposed change to the phone. Writes nothing.",
+      "description": "Plan from the weather, read the managed zones' heights and send any proposed change to the phone. Writes nothing; the check before the next mow makes the change.",
       "fields": {
-        "config_entry_id": { "name": "Mower", "description": "Only needed with more than one mower." }
-      }
-    },
-    "apply": {
-      "name": "Apply now",
-      "description": "Write the pending heights to the mower now, or once it is docked. Needs the Write to mower switch on.",
-      "fields": {
-        "confirm": { "name": "Confirm", "description": "Acknowledge that the mower's cut heights will change." },
-        "config_entry_id": { "name": "Mower", "description": "Only needed with more than one mower." }
+        "config_entry_id": {
+          "name": "Mower",
+          "description": "Only needed with more than one mower."
+        }
       }
     },
     "skip": {
       "name": "Skip 2 days",
       "description": "Drop anything pending and make no change for 2 days.",
       "fields": {
-        "config_entry_id": { "name": "Mower", "description": "Only needed with more than one mower." }
+        "config_entry_id": {
+          "name": "Mower",
+          "description": "Only needed with more than one mower."
+        }
       }
     }
   }

@@ -51,9 +51,8 @@ OPTIONAL_KEYS = (CONF_CALENDAR, CONF_MAP_SELECT, CONF_MAP_OPTION, CONF_NOTIFY, C
                  CONF_STATION_TEMP, CONF_STATION_RAIN, CONF_LOCAL_RAIN, CONF_BUCKET,
                  CONF_WARNINGS)
 
-# Phone notification buttons. Distinct from the old YAML package's CUT_HEIGHT_* actions so
-# the two never answer the same tap while you migrate.
-ACTION_APPLY = "DREAME_CUT_HEIGHT_APPLY_NOW"
+# The phone notification's one button. Changes are made automatically; Skip is the opt-out.
+# Distinct from the old YAML package's CUT_HEIGHT_SKIP so the two never answer the same tap.
 ACTION_SKIP = "DREAME_CUT_HEIGHT_SKIP"
 NOTIFY_TAG = "dreame_cut_height"
 

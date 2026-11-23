@@ -11,7 +11,7 @@ import aiohttp
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import Event, HomeAssistant, State, callback
-from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_time_interval
 from homeassistant.helpers.storage import Store
@@ -19,7 +19,6 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .const import (
-    ACTION_APPLY,
     ACTION_SKIP,
     APPLY_BEFORE,
     CALENDAR_CACHE,
@@ -539,23 +538,23 @@ class CutHeightCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if not self.allow_writes:
                 text += " Preview only: writes to the mower are off."
                 await self.async_notify(text)
-            else:
-                if apply_at is not None:
-                    text += (f" Happens at {dt_util.as_local(apply_at).strftime('%H:%M')} "
-                             "while the mower is docked unless you skip.")
-                else:
-                    text += " Tap Apply now to set it."
+            elif apply_at is not None:
+                text += (f" It will be set at {dt_util.as_local(apply_at).strftime('%H:%M')} "
+                         "while the mower is docked, unless you skip.")
                 await self.async_notify(text, ask=True)
+            else:
+                text += " The check before the next mow will set it."
+                await self.async_notify(text)
         return pending
 
     async def async_apply(self) -> str:
         """Write the pending heights now if the mower is docked, else queue them for the dock.
 
-        Returns "applied", "queued" or "nothing".
+        Only the scheduler calls this: changes are made automatically before a mow, never
+        on request. Returns "applied", "queued", "nothing" or "off".
         """
         if not self.allow_writes:
-            raise ServiceValidationError(
-                "Writes to the mower are off. Turn on the integration's 'Write to mower' switch first.")
+            return "off"
         async with self._lock:
             return await self._apply()
 
@@ -627,8 +626,7 @@ class CutHeightCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             domain, name = "notify", domain
         data: dict[str, Any] = {"tag": NOTIFY_TAG}
         if ask:
-            data["actions"] = [{"action": ACTION_APPLY, "title": "Apply now"},
-                               {"action": ACTION_SKIP, "title": "Skip 2 days"}]
+            data["actions"] = [{"action": ACTION_SKIP, "title": "Skip 2 days"}]
         try:
             await self.hass.services.async_call(
                 domain, name, {"title": "Mower cut height", "message": message, "data": data},
@@ -697,23 +695,13 @@ class CutHeightCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 await self._save()
                 if self.allow_writes:
                     await self.async_apply()
-        # A change that is due (or Apply now was pressed) but waited for the dock: write it
-        # once the mower has sat there a while. This runs with the master switch off too,
-        # because Apply now is a manual request.
-        if self.allow_writes and self.state["apply_due"] and self.state["pending"]:
+        # A change that was due while the mower was out: write it once the mower has sat
+        # docked for a while.
+        if self.enabled and self.allow_writes and self.state["apply_due"] and self.state["pending"]:
             docked = self._docked_for()
             if docked is not None and docked >= DOCKED_FOR:
                 await self.async_apply()
 
     async def _async_phone_action(self, event: Event) -> None:
-        action = event.data.get("action")
-        if action not in (ACTION_APPLY, ACTION_SKIP) or not self.enabled:
-            return
-        if action == ACTION_SKIP:
+        if event.data.get("action") == ACTION_SKIP and self.enabled:
             await self.async_skip()
-            return
-        if not self.allow_writes:
-            await self.async_notify("Writes to the mower are off, so nothing was changed.")
-            return
-        if await self.async_apply() == "queued":
-            await self.async_notify("The mower isn't docked. The change will be made once it is.")

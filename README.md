@@ -1,4 +1,12 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="custom_components/dreame_smart_cut_height/brand/dark_logo.png">
+  <img alt="Smart Cut Height" src="custom_components/dreame_smart_cut_height/brand/logo.png" height="128">
+</picture>
+
 # Dreame Smart Cut Height
+
+[![Open your Home Assistant instance and open this repository in the Marketplace.](https://my.home-assistant.io/badges/marketplace_repository.svg)](https://my.home-assistant.io/redirect/marketplace_repository/?owner=dmacwalter&repository=HA-Dreame-Weather-Dependant-Cut-Height&category=integration)
+[![Open your Home Assistant instance and start setting up Dreame Smart Cut Height.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=dreame_smart_cut_height)
 
 A Home Assistant integration that sets a Dreame robot mower's cutting height per zone
 from the weather, tuned for the dry tropics (it was built in Townsville): lower after
@@ -43,9 +51,10 @@ The weather picks an offset, which is added to the usual height of every managed
 
 - An hour before each scheduled mow (from the mower's schedule calendar), the plan's
   memory is saved and each managed zone's height is read from the mower. Any change gets
-  one phone notification with Apply now and Skip 2 days.
-- With no answer, it's written 5 minutes before the mow if the mower is docked,
-  otherwise once it has been docked for 2 minutes.
+  one phone notification saying what will change and when, with a Skip 2 days button.
+- The change is written 5 minutes before the mow if the mower is docked, otherwise once
+  it has been docked for 2 minutes. Nothing needs your input; Skip is the only way to
+  stop it.
 - Before writing, the height is read again; if someone changed it in the app since the
   check, that zone is left alone. The height is read back 2 minutes after the write,
   and you're told if it didn't take.
@@ -58,8 +67,8 @@ Assistant and change nothing on the mower. They are put back afterwards.
 
 Two switches keep it safe while you try it:
 
-- `switch.smart_cut_height` (master): off, nothing runs before a mow and phone taps are
-  ignored. Check now still works.
+- `switch.smart_cut_height` (master): off, nothing runs before a mow and the Skip button
+  is ignored. Check now still works.
 - `switch.smart_cut_height_write_to_mower`: off, nothing is ever sent to the mower.
   Checks still run and notify you, marked "Preview only".
 
@@ -98,19 +107,21 @@ Only the location is required.
 1. Install [EvotecIT/homeassistant-dreamelawnmower](https://github.com/EvotecIT/homeassistant-dreamelawnmower)
    and, in the Dreame app, set the map's mowing preferences to Custom (per zone), not
    Global.
-2. In HACS, add this repository as a custom repository (type Integration), install
-   Dreame Smart Cut Height and restart Home Assistant. Without HACS, copy
-   `custom_components/dreame_smart_cut_height` into `/config/custom_components/` and
-   restart.
-3. Settings > Devices & services > Add integration > Dreame Smart Cut Height. Pick the
-   mower; the docked sensor, schedule calendar, map and zone selectors and zone height
-   are looked up on the mower's device for you to check. Then the map whose zones you
-   manage, then the weather sources.
+2. Use the Marketplace button at the top of this page (Home Assistant 2026.11 or newer;
+   it opens HACS on older versions), install Dreame Smart Cut Height and restart Home
+   Assistant. Or in Settings > Marketplace > Add from link, enter
+   `dmacwalter/HA-Dreame-Weather-Dependant-Cut-Height` with type Integration. Without
+   either, copy `custom_components/dreame_smart_cut_height` into
+   `/config/custom_components/` and restart.
+3. Use the second button, or Settings > Devices & services > Add integration > Dreame
+   Smart Cut Height. Pick the mower; the docked sensor, schedule calendar, map and zone
+   selectors and zone height are looked up on the mower's device for you to check. Then
+   the map whose zones you manage, then the weather sources.
 4. On the new Smart cut height device, switch on the zones you want managed and set
    their usual heights.
-5. Turn on the master switch. Watch a few "Preview only" notifications.
-6. Do one supervised write: with the mower docked, press Check now, then turn on Write
-   to mower and press Apply now, and check the app shows the new height for that zone.
+5. Turn on the master switch and watch a few "Preview only" notifications.
+6. Turn on Write to mower. After the first change, check the app shows the new height
+   for that zone.
 
 Zones come from the Dreame zone selector's options ("Raised Lawn (#1)" or "Zone #3").
 Zones added or renamed in the app later are picked up when you save the Mower entities
@@ -129,9 +140,9 @@ On the Smart cut height device (`<zone>` is the zone's name, for example `raised
   `sensor.smart_cut_height_next_change`, `sensor.smart_cut_height_managed_zones`,
   `sensor.smart_cut_height_<zone>_target_height`, the offset, 3-day rain, 7-day mean and
   21-day deficit
-- `button.smart_cut_height_check_now`, `button.smart_cut_height_apply_now`,
-  `button.smart_cut_height_skip_2_days`
-- Actions `dreame_smart_cut_height.check`, `.apply` (needs `confirm: true`) and `.skip`
+- `button.smart_cut_height_check_now` (a preview: reads the zones and tells you what the
+  next mow will change, writes nothing) and `button.smart_cut_height_skip_2_days`
+- Actions `dreame_smart_cut_height.check` and `.skip`
 
 `dashboards/cut_height_view.yaml` is a dashboard view with all of it on one screen, and
 `dashboards/cut_height_card.yaml` is the Dreame
@@ -156,9 +167,9 @@ that it keeps its own copy and the helpers are no longer used.
 1. Install and add the integration as above, with both switches off. Compare
    `sensor.smart_cut_height_weather_plan` with `sensor.cut_height_plan` for a few days.
 2. Turn off the package's master switch (`switch.cut_height_smart`), then turn on the
-   integration's. Its phone buttons have different action names from the package's, so
-   a tap only ever reaches one of them.
-3. After one supervised apply, turn on Write to mower.
+   integration's. Its Skip button has a different action name from the package's, so a
+   tap only ever reaches one of them.
+3. Turn on Write to mower.
 4. Remove `packages/dreame_cut_height.yaml` and `custom_templates/cut_height.jinja`,
    restart, and delete the `cut_height_*` helpers if you made them in the UI. Point
    dashboards at the new entities (see `dashboards/`).
@@ -173,14 +184,15 @@ that it keeps its own copy and the helpers are no longer used.
 - `tests/test_weather_merge.py`: source precedence (including a snapshot from my live
   setup) and zone labels.
 - `tests/test_integration.py`: set-up and settings, entity lookup on the mower's device,
-  the pre-mow check, apply and read-back, waiting for the dock, the stale-height guard,
-  phone actions and skip, against a fake mower in Home Assistant's test harness.
+  the pre-mow check, the automatic write and read-back, waiting for the dock, the
+  stale-height guard and skip, against a fake mower in Home Assistant's test harness.
 - `tools/replay.py` replays the rules over past weather, mowing day by mowing day, so
   you can tune the thresholds for your location. It needs only Python.
 
 ## Requirements
 
-- Home Assistant 2026.2 or newer (tested on 2026.2 and running on 2026.11).
+- Home Assistant 2026.3 or newer for the icon and logo (tested on 2026.2 and running on
+  2026.11).
 - EvotecIT/homeassistant-dreamelawnmower, built against v0.2.196 on a Dreame A1. It's
   unofficial and uses Dreame's cloud, so it can break if Dreame changes it. Its write
   actions are marked for supervised use, so keep an eye on the read-back messages at

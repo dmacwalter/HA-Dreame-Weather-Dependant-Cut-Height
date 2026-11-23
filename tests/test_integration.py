@@ -15,7 +15,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.util import dt as dt_util
 
 from custom_components.dreame_smart_cut_height.const import (
-    ACTION_APPLY, ACTION_SKIP, CONF_LOCAL_RAIN, CONF_WEATHER, CONF_ZONES, DOMAIN,
+    ACTION_SKIP, CONF_LOCAL_RAIN, CONF_WEATHER, CONF_ZONES, DOMAIN,
 )
 
 from .mower import (
@@ -87,6 +87,7 @@ async def test_setup_creates_entities_and_adopts_the_old_package(hass, aioclient
     assert states.get("sensor.smart_cut_height_managed_zones").state == "Raised Lawn"
     assert states.get("sensor.smart_cut_height_next_change").attributes["last_lower"] == "2026-12-01"
     assert states.get("button.smart_cut_height_check_now") is not None
+    assert states.get("button.smart_cut_height_apply_now") is None
 
 
 async def test_settings_change_the_plan_without_a_weather_fetch(hass, aioclient_mock, freezer):
@@ -110,8 +111,17 @@ async def test_check_now_previews_only_and_restores_the_selection(hass, aioclien
     assert mower.writes == []
     assert hass.states.get(ZONE).state == "Orchard (#2)"
     assert hass.states.get(MAP).state == "Front (#1)"
-    with pytest.raises(Exception, match="Write to mower"):
-        await _press(hass, "button.smart_cut_height_apply_now")
+
+
+async def test_check_now_with_writes_on_leaves_the_change_to_the_schedule(hass, aioclient_mock, freezer):
+    _, mower = await _setup(hass, aioclient_mock, freezer, legacy=MANAGE_RAISED_LAWN)
+    await _switch(hass, "switch.smart_cut_height")
+    await _switch(hass, "switch.smart_cut_height_write_to_mower")
+    await _press(hass, "button.smart_cut_height_check_now")
+    note = mower.notifications[-1]
+    assert "check before the next mow will set it" in note["message"]
+    assert "actions" not in note["data"]
+    assert mower.writes == []
 
 
 async def test_scheduled_check_then_apply_before_the_mow(hass, aioclient_mock, freezer):
@@ -126,8 +136,8 @@ async def test_scheduled_check_then_apply_before_the_mow(hass, aioclient_mock, f
     assert c.state["pending_for"] is not None
     assert c.state["heat_until"] > "2026-12-10"   # the plan's memory is saved at the check
     note = mower.notifications[-1]
-    assert "Happens at 08:45" in note["message"]
-    assert [a["action"] for a in note["data"]["actions"]] == [ACTION_APPLY, ACTION_SKIP]
+    assert "set at 08:45" in note["message"]
+    assert [a["action"] for a in note["data"]["actions"]] == [ACTION_SKIP]
     await c._async_tick()                          # same event: no second check
     assert len(mower.notifications) == 1
 
@@ -157,16 +167,26 @@ async def test_a_manual_preview_is_not_applied_by_the_schedule(hass, aioclient_m
     c._events_at = None
     await c._async_tick()
     assert mower.writes == []
-    await _press(hass, "button.smart_cut_height_apply_now")
-    assert len(mower.writes) == 1
 
 
-async def test_apply_waits_for_the_mower_to_sit_docked(hass, aioclient_mock, freezer):
-    entry, mower = await _setup(hass, aioclient_mock, freezer, legacy=MANAGE_RAISED_LAWN, docked=False)
+async def _scheduled(hass, entry, mower, freezer):
+    """Master and writes on, run the check for a mow 50 minutes away, then move to its due time."""
     c = entry.runtime_data
-    await _switch(hass, "switch.smart_cut_height_write_to_mower")   # master stays off
-    await _press(hass, "button.smart_cut_height_check_now")
-    await _press(hass, "button.smart_cut_height_apply_now")
+    await _switch(hass, "switch.smart_cut_height")
+    await _switch(hass, "switch.smart_cut_height_write_to_mower")
+    start = dt_util.now() + timedelta(minutes=50)
+    mower.events = [_event(start)]
+    await c._async_tick()
+    assert c.state["pending"]
+    freezer.move_to(start - timedelta(minutes=4))
+    c._events_at = None
+    return c
+
+
+async def test_a_due_change_waits_for_the_mower_to_sit_docked(hass, aioclient_mock, freezer):
+    entry, mower = await _setup(hass, aioclient_mock, freezer, legacy=MANAGE_RAISED_LAWN, docked=False)
+    c = await _scheduled(hass, entry, mower, freezer)
+    await c._async_tick()
     assert mower.writes == [] and c.state["apply_due"] is True
     mower.dock(True)
     await c._async_tick()
@@ -178,40 +198,45 @@ async def test_apply_waits_for_the_mower_to_sit_docked(hass, aioclient_mock, fre
 
 async def test_a_height_changed_since_the_check_is_not_overwritten(hass, aioclient_mock, freezer):
     entry, mower = await _setup(hass, aioclient_mock, freezer, legacy=MANAGE_RAISED_LAWN)
-    await _switch(hass, "switch.smart_cut_height_write_to_mower")
-    await _press(hass, "button.smart_cut_height_check_now")
+    c = await _scheduled(hass, entry, mower, freezer)
     mower.heights[1] = 3.0
-    await _press(hass, "button.smart_cut_height_apply_now")
+    await c._async_tick()
     assert mower.writes == []
-    assert "changed since the check" in entry.runtime_data.state["last_error"]
+    assert "changed since the check" in c.state["last_error"]
     assert "Couldn't set" in mower.notifications[-1]["message"]
 
 
 async def test_failed_write_is_reported(hass, aioclient_mock, freezer):
     entry, mower = await _setup(hass, aioclient_mock, freezer, legacy=MANAGE_RAISED_LAWN)
-    await _switch(hass, "switch.smart_cut_height_write_to_mower")
-    await _press(hass, "button.smart_cut_height_check_now")
+    c = await _scheduled(hass, entry, mower, freezer)
     mower.fail_write = True
-    await _press(hass, "button.smart_cut_height_apply_now")
-    assert "write failed" in entry.runtime_data.state["last_error"]
+    await c._async_tick()
+    assert "write failed" in c.state["last_error"]
 
 
-async def test_phone_buttons(hass, aioclient_mock, freezer):
+async def test_nothing_is_written_with_writes_off(hass, aioclient_mock, freezer):
+    entry, mower = await _setup(hass, aioclient_mock, freezer, legacy=MANAGE_RAISED_LAWN)
+    c = await _scheduled(hass, entry, mower, freezer)
+    await _switch(hass, "switch.smart_cut_height_write_to_mower", on=False)
+    await c._async_tick()
+    assert mower.writes == []
+
+
+async def test_phone_skip_button(hass, aioclient_mock, freezer):
     entry, mower = await _setup(hass, aioclient_mock, freezer, legacy=MANAGE_RAISED_LAWN)
     c = entry.runtime_data
-    await _switch(hass, "switch.smart_cut_height_write_to_mower")
     await _press(hass, "button.smart_cut_height_check_now")
-    # Master off: taps are ignored. The old package's action names are always ignored.
-    hass.bus.async_fire("mobile_app_notification_action", {"action": ACTION_APPLY})
+    # Master off: the tap is ignored.
+    hass.bus.async_fire("mobile_app_notification_action", {"action": ACTION_SKIP})
+    await hass.async_block_till_done()
+    assert c.state["pending"] and not c.state["skip_until"]
     await _switch(hass, "switch.smart_cut_height")
-    hass.bus.async_fire("mobile_app_notification_action", {"action": "CUT_HEIGHT_APPLY_NOW"})
+    await _switch(hass, "switch.smart_cut_height_write_to_mower")
+    # Old actions do nothing: there is no apply-on-tap any more.
+    for action in ("CUT_HEIGHT_APPLY_NOW", "DREAME_CUT_HEIGHT_APPLY_NOW", "CUT_HEIGHT_SKIP"):
+        hass.bus.async_fire("mobile_app_notification_action", {"action": action})
     await hass.async_block_till_done()
-    assert mower.writes == []
-    hass.bus.async_fire("mobile_app_notification_action", {"action": ACTION_APPLY})
-    await hass.async_block_till_done()
-    assert len(mower.writes) == 1
-
-    await _press(hass, "button.smart_cut_height_check_now")
+    assert mower.writes == [] and c.state["pending"]
     hass.bus.async_fire("mobile_app_notification_action", {"action": ACTION_SKIP})
     await hass.async_block_till_done()
     assert c.state["pending"] == [] and c.state["skip_until"]
@@ -229,15 +254,11 @@ async def test_a_skip_holds_the_scheduled_check(hass, aioclient_mock, freezer):
 
 
 async def test_services(hass, aioclient_mock, freezer):
-    entry, mower = await _setup(hass, aioclient_mock, freezer, legacy=MANAGE_RAISED_LAWN)
+    await _setup(hass, aioclient_mock, freezer, legacy=MANAGE_RAISED_LAWN)
     result = await hass.services.async_call(DOMAIN, "check", {}, blocking=True, return_response=True)
     assert result["pending"][0]["to"] == 4.0
-    with pytest.raises(Exception, match="confirm"):
-        await hass.services.async_call(DOMAIN, "apply", {"confirm": False}, blocking=True)
-    await _switch(hass, "switch.smart_cut_height_write_to_mower")
-    result = await hass.services.async_call(DOMAIN, "apply", {"confirm": True}, blocking=True,
-                                            return_response=True)
-    assert result == {"result": "applied"} and len(mower.writes) == 1
+    assert not hass.services.has_service(DOMAIN, "apply")
+    await hass.services.async_call(DOMAIN, "skip", {}, blocking=True)
 
 
 async def test_weather_sources_station_and_forecast(hass, aioclient_mock, freezer):

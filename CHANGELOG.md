@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.0
+
+- Changes are always made automatically before the mow. The Apply now button, the
+  notification's Apply now action and the `apply` action are gone; the notification says
+  what will change and when, with Skip 2 days as the only button.
+- A change found by Check now is a preview; the check before the next mow makes it.
+- Icon and logo for the integrations page and the Marketplace (`brand/`, Home Assistant
+  2026.3 or newer).
+- README: Marketplace and set-up buttons.
+
 ## 0.3.0
 
 First release as a Home Assistant integration, replacing the YAML package (kept in

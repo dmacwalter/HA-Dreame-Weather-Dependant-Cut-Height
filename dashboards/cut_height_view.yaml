@@ -64,26 +64,13 @@ sections:
     type: tile
   - entity: button.smart_cut_height_check_now
     grid_options:
-      columns: 4
+      columns: 6
     name: Check now
     type: tile
     hide_state: true
-  - entity: button.smart_cut_height_apply_now
-    grid_options:
-      columns: 4
-    name: Apply now
-    type: tile
-    hide_state: true
-    tap_action:
-      action: perform-action
-      confirmation:
-        text: Write the pending heights to the mower?
-      perform_action: button.press
-      target:
-        entity_id: button.smart_cut_height_apply_now
   - entity: button.smart_cut_height_skip_2_days
     grid_options:
-      columns: 4
+      columns: 6
     name: Skip 2 days
     type: tile
     hide_state: true
@@ -309,7 +296,6 @@ sections:
     - switch.smart_cut_height
     - switch.smart_cut_height_write_to_mower
     - switch.smart_cut_height_raised_lawn_smart_control
-    - button.smart_cut_height_apply_now
     - button.smart_cut_height_skip_2_days
     hours_to_show: 336
     type: logbook
