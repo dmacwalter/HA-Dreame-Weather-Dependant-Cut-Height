@@ -286,7 +286,7 @@ template:
           forecast: >
             {% set ns = namespace(out=[]) %}
             {% for f in bom['weather.belgian_gardens'].forecast %}
-              {% set ns.out = ns.out + [dict(date=f.datetime[:10], max=f.temperature, min=f.templow, rain=f.precipitation)] %}
+              {% set ns.out = ns.out + [dict(date=f.datetime[:10], max=f.temperature | default(none), min=f.templow | default(none), rain=f.precipitation | default(none))] %}
             {% endfor %}
             {{ ns.out }}
 

@@ -1,0 +1,211 @@
+# A dashboard view with everything for the cut height on one screen: what it plans now,
+# the zone's usual height and the adjustments, the thresholds, the weather it's working
+# from, and a history of changes. Add it as a view (Edit dashboard > Raw configuration
+# editor, under views:). Replace the entity IDs with yours.
+icon: mdi:ruler
+max_columns: 3
+path: cut-height
+sections:
+- cards:
+  - heading: Now
+    heading_style: title
+    icon: mdi:grass
+    type: heading
+  - entity: switch.cut_height_smart
+    features:
+    - type: toggle
+    grid_options:
+      columns: 12
+    name: Smart cut height
+    type: tile
+  - entity: sensor.cut_height_plan
+    grid_options:
+      columns: 6
+    name: Weather condition
+    type: tile
+  - entity: sensor.cut_height_plan
+    grid_options:
+      columns: 6
+    icon: mdi:ruler
+    name: Raised Lawn target
+    state_content: targets_text
+    type: tile
+  - entity: number.a1_selected_zone_mowing_height
+    grid_options:
+      columns: 6
+    icon: mdi:robot-mower
+    name: Mower reports
+    state_content:
+    - selected_zone_label
+    - state
+    type: tile
+  - entity: sensor.cut_height_next_change
+    grid_options:
+      columns: 6
+    name: Next change
+    type: tile
+  - entity: calendar.a1_schedule
+    grid_options:
+      columns: 12
+    icon: mdi:calendar-clock
+    name: Next mow (checks an hour before)
+    state_content: start_time
+    type: tile
+  - entity: script.cut_height_skip
+    grid_options:
+      columns: 12
+    hide_state: true
+    icon: mdi:calendar-remove
+    name: Skip height changes for 2 days
+    tap_action:
+      action: perform-action
+      confirmation:
+        text: Hold cut-height changes for 2 days?
+      perform_action: script.turn_on
+      target:
+        entity_id: script.cut_height_skip
+    type: tile
+  type: grid
+- cards:
+  - heading: Raised Lawn
+    heading_style: title
+    icon: mdi:target
+    type: heading
+  - entity: input_number.cut_height_baseline_zone_1
+    features:
+    - style: buttons
+      type: numeric-input
+    grid_options:
+      columns: 12
+    name: Usual height
+    type: tile
+  - heading: Adjustments
+    heading_style: subtitle
+    type: heading
+  - entity: input_number.cut_height_rain_offset
+    features:
+    - style: buttons
+      type: numeric-input
+    grid_options:
+      columns: 12
+    name: After heavy rain (wet season)
+    type: tile
+  - entity: input_number.cut_height_dry_season_offset
+    features:
+    - style: buttons
+      type: numeric-input
+    grid_options:
+      columns: 12
+    name: Dry season (May to Sep)
+    type: tile
+  - entity: input_number.cut_height_hot_offset
+    features:
+    - style: buttons
+      type: numeric-input
+    grid_options:
+      columns: 12
+    name: Heat or dry spell
+    type: tile
+  - entity: input_number.cut_height_heatwave_offset
+    features:
+    - style: buttons
+      type: numeric-input
+    grid_options:
+      columns: 12
+    name: Heatwave
+    type: tile
+  type: grid
+- cards:
+  - heading: Thresholds
+    heading_style: title
+    icon: mdi:tune-variant
+    type: heading
+  - entities:
+    - entity: input_number.cut_height_hot_max_temp
+      name: 'Hot day: BOM max from'
+    - entity: input_number.cut_height_heatwave_temp
+      name: 'Heatwave: 3-day mean from'
+    - entity: input_number.cut_height_heavy_rain
+      name: Heavy rain from (3 days or 24 h)
+    - entity: input_number.cut_height_grow_temp
+      name: Rain drop needs 7-day mean of
+    - entity: input_number.cut_height_dry_bucket
+      name: Dry spell at water balance
+    - entity: input_number.cut_height_dry_deficit
+      name: Dry spell fallback (21-day deficit)
+    show_header_toggle: false
+    type: entities
+  type: grid
+- cards:
+  - heading: Weather it's using
+    heading_style: title
+    icon: mdi:weather-partly-cloudy
+    type: heading
+  - entity: weather.belgian_gardens
+    forecast_type: daily
+    name: BOM Belgian Gardens
+    show_current: true
+    show_forecast: true
+    type: weather-forecast
+  - entity: sensor.cut_height_plan
+    grid_options:
+      columns: 6
+    icon: mdi:thermometer
+    name: 7-day mean
+    state_content: t7
+    type: tile
+  - entity: sensor.belgian_gardens_warnings
+    grid_options:
+      columns: 6
+    name: BOM warnings
+    type: tile
+  - entity: sensor.smart_irrigation_raised_lawn_bucket
+    grid_options:
+      columns: 6
+    name: Raised Lawn water balance
+    type: tile
+  - entity: sensor.gw3000c_24h_rain_piezo
+    grid_options:
+      columns: 6
+    name: Rain, last 24 h (gauge)
+    type: tile
+  - entity: input_boolean.cut_height_dry_spell
+    grid_options:
+      columns: 6
+    name: Dry spell
+    type: tile
+  - entity: input_datetime.cut_height_rain_until
+    grid_options:
+      columns: 6
+    name: Low after rain until
+    type: tile
+  - entity: input_datetime.cut_height_heat_until
+    grid_options:
+      columns: 6
+    name: Heat hold until
+    type: tile
+  - entity: input_datetime.cut_height_heatwave_until
+    grid_options:
+      columns: 6
+    name: Heatwave hold until
+    type: tile
+  column_span: 2
+  type: grid
+- cards:
+  - heading: History
+    heading_style: title
+    icon: mdi:history
+    type: heading
+  - entities:
+    - sensor.cut_height_plan
+    - sensor.cut_height_next_change
+    - number.a1_selected_zone_mowing_height
+    - automation.cut_height_check_before_mowing
+    - automation.cut_height_apply
+    - script.cut_height_skip
+    - switch.cut_height_smart
+    hours_to_show: 336
+    type: logbook
+  type: grid
+title: Cut height
+type: sections

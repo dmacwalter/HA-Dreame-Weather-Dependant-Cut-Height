@@ -120,6 +120,8 @@ automations as `switch.cut_height_smart`.
 - `tools/replay.py`: replay over past weather.
 - `dashboards/cut_height_card.yaml`: the lawn-mower-card with zone choice and the
   smart settings.
+- `dashboards/cut_height_view.yaml`: a view with everything on one screen (settings,
+  weather it's using, history of changes).
 - `docs/tropical-cut-height-notes.md`: the rules, their reasoning and sources.
 - `scripts/`: SSH/API helper and a deploy script (set `HA_IP`, `HA_KEY`, `HA_TOKEN`).
 

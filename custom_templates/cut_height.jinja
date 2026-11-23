@@ -127,7 +127,8 @@
 {%- if ns.i < 20 -%}
 {{ dict(error='no weather for today') | to_json }}
 {%- else -%}
-{%- set bom = state_attr('sensor.cut_height_bom_forecast', 'forecast') or [] -%}
+{%- set bom = state_attr('sensor.cut_height_bom_forecast', 'forecast') -%}
+{%- set bom = bom if bom is list else [] -%}
 {%- for t in om.time -%}
   {%- set b = bom | selectattr('date', 'eq', t) | list -%}
   {%- set use = loop.index0 >= ns.i and b and b[0].max is number and b[0].min is number -%}
