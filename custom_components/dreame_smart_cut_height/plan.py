@@ -1,7 +1,7 @@
-"""Weather-dependent cut height for a Dreame mower in the tropics (test oracle).
+"""Weather-dependent cut height for a Dreame mower in the tropics.
 
-The Jinja macros in custom_templates/cut_height.jinja mirror these two functions, and
-tests/test_parity_plan_ha.py checks that they agree.
+Pure Python with no Home Assistant imports, so tests and tools/replay.py can load it
+on their own.
 
 plan() runs once before each scheduled mow on daily weather covering at least the 20
 days before today and, ideally, the next 2. It reads its state (a dry-spell latch and
@@ -65,6 +65,8 @@ def plan(*, daily, i, today, rain_until="1970-01-01", heat_until="1970-01-01",
     rain = [float(x or 0) for x in daily["precipitation_sum"]]
     et0 = [float(x or 0) for x in daily["et0_fao_evapotranspiration"]]
     n = len(tm)
+    if i < 20 or i >= n:
+        raise ValueError("daily weather needs 20 days before today and today itself")
 
     t7 = _mean(tm[i - 6:i + 1])
     wet_season = int(today[5:7]) in WET_MONTHS
@@ -82,7 +84,7 @@ def plan(*, daily, i, today, rain_until="1970-01-01", heat_until="1970-01-01",
     hot_ahead = any(tx[k] >= p["hot_max"] for k in ahead)
     # Heatwave (BoM excess heat): a 3-day mean of daily mean temperature, (max + min) / 2,
     # at or above t95, for any 3-day window ending today..+2.
-    dmt = [(a + b) / 2 for a, b in zip(tx, tn)]
+    dmt = [(a + b) / 2 for a, b in zip(tx, tn, strict=True)]
     ehi = max(_mean(dmt[k - 2:k + 1]) for k in ahead) - p["t95"]
     wave_ahead = ehi >= 0 or bool(heat_warning)
     if hot_ahead or wave_ahead:

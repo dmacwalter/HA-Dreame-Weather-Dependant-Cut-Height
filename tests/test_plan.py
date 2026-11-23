@@ -1,4 +1,4 @@
-from reference.plan import plan, zone_next, zone_want
+from custom_components.dreame_smart_cut_height.plan import plan, zone_next, zone_want
 from tests.plan_fixtures import TODAY, weather
 
 WET = dict(bucket=5.0)  # well watered, so the dry-spell rule stays out of the way

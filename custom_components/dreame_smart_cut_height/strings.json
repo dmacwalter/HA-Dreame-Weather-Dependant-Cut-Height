@@ -1,0 +1,117 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Choose the mower",
+        "description": "Pick the lawn mower entity from the Dreame lawn mower integration.",
+        "data": { "mower": "Mower" }
+      },
+      "mower": {
+        "title": "Mower entities",
+        "description": "These were looked up on the mower's own device; check them. The zone selector, the selected-zone height and the docked sensor are required. The calendar is the mower's schedule: without it nothing runs before a mow, but Check now and Apply now still work.",
+        "data": {
+          "docked": "Docked sensor",
+          "zone_select": "Zone selector",
+          "zone_height": "Selected-zone mowing height",
+          "map_select": "Map selector",
+          "calendar": "Mowing schedule calendar",
+          "notify_service": "Phone notification service"
+        }
+      },
+      "map": {
+        "title": "Mowing map",
+        "description": "The map whose zones are managed. Zone heights are read and written on this map.",
+        "data": { "map_option": "Map" }
+      },
+      "weather": {
+        "title": "Weather sources",
+        "description": "Open-Meteo is always used, for this location, and fills any gap. The other sources are optional: the forecast entity's max and min replace Open-Meteo's for today and ahead; a weather station's long-term statistics replace past temperatures and rain; a rain gauge's last 24 hours, a Smart Irrigation water balance and a warnings sensor (a heatwave warning raises the height) feed the plan directly.",
+        "data": {
+          "weather": "Forecast weather entity (for example BOM)",
+          "latitude": "Lawn latitude",
+          "longitude": "Lawn longitude",
+          "station_temperature": "Weather station temperature",
+          "station_rain": "Weather station rain total (increasing)",
+          "local_rain_24h": "Rain in the last 24 hours",
+          "water_balance": "Smart Irrigation water balance (bucket)",
+          "warnings": "Weather warnings sensor"
+        }
+      }
+    },
+    "error": {
+      "no_zones": "This selector lists no zones with a number such as \"Lawn (#1)\"."
+    },
+    "abort": {
+      "already_configured": "This mower is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Smart cut height",
+        "description": "Thresholds, offsets, usual heights and the switches are entities on the integration's device. Here you change where the data comes from.",
+        "menu_options": {
+          "weather": "Weather sources",
+          "mower": "Mower entities and phone"
+        }
+      },
+      "mower": {
+        "title": "Mower entities",
+        "description": "Saving also picks up zones added or renamed in the Dreame app.",
+        "data": {
+          "docked": "Docked sensor",
+          "zone_select": "Zone selector",
+          "zone_height": "Selected-zone mowing height",
+          "map_select": "Map selector",
+          "calendar": "Mowing schedule calendar",
+          "notify_service": "Phone notification service"
+        }
+      },
+      "map": {
+        "title": "Mowing map",
+        "data": { "map_option": "Map" }
+      },
+      "weather": {
+        "title": "Weather sources",
+        "description": "Clear a field to stop using that source. Open-Meteo fills any gap.",
+        "data": {
+          "weather": "Forecast weather entity (for example BOM)",
+          "latitude": "Lawn latitude",
+          "longitude": "Lawn longitude",
+          "station_temperature": "Weather station temperature",
+          "station_rain": "Weather station rain total (increasing)",
+          "local_rain_24h": "Rain in the last 24 hours",
+          "water_balance": "Smart Irrigation water balance (bucket)",
+          "warnings": "Weather warnings sensor"
+        }
+      }
+    },
+    "error": {
+      "no_zones": "This selector lists no zones with a number such as \"Lawn (#1)\"."
+    }
+  },
+  "services": {
+    "check": {
+      "name": "Check now",
+      "description": "Plan from the weather, read the managed zones' heights and send any proposed change to the phone. Writes nothing.",
+      "fields": {
+        "config_entry_id": { "name": "Mower", "description": "Only needed with more than one mower." }
+      }
+    },
+    "apply": {
+      "name": "Apply now",
+      "description": "Write the pending heights to the mower now, or once it is docked. Needs the Write to mower switch on.",
+      "fields": {
+        "confirm": { "name": "Confirm", "description": "Acknowledge that the mower's cut heights will change." },
+        "config_entry_id": { "name": "Mower", "description": "Only needed with more than one mower." }
+      }
+    },
+    "skip": {
+      "name": "Skip 2 days",
+      "description": "Drop anything pending and make no change for 2 days.",
+      "fields": {
+        "config_entry_id": { "name": "Mower", "description": "Only needed with more than one mower." }
+      }
+    }
+  }
+}

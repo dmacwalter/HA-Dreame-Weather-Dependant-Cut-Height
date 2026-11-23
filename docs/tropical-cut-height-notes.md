@@ -39,8 +39,8 @@ after-rain drop only fires on a genuine downpour.
 - **Coming back.** On 1 October the height steps back down from the dry-season height,
   half a centimetre per apply. Heat wins over
 rain on purpose: a hot spell straight after a downpour is when the grass is most
-stressed, and cutting low then works against it. Swap the order in `cut_height_plan()` and
-`reference/plan.py` if you'd rather.
+stressed, and cutting low then works against it. Swap the order in
+`custom_components/dreame_smart_cut_height/plan.py` if you'd rather.
 
 Each zone's target is its baseline plus the offset, on the A1's 0.5 cm grid, kept within
 3.0 to 7.0 cm. Raises happen at once; lowering is one 0.5 cm step per apply, no more than

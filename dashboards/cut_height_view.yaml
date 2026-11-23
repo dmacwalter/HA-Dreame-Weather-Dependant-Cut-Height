@@ -1,7 +1,11 @@
 # A dashboard view with everything for the cut height on one screen: what it plans now,
-# the zone's usual height and the adjustments, the thresholds, the weather it's working
-# from, and a history of changes. Add it as a view (Edit dashboard > Raw configuration
-# editor, under views:). Replace the entity IDs with yours.
+# each zone's switch and usual height, the adjustments and thresholds, the weather it's
+# working from, and a history of changes. Add it as a view (Edit dashboard > Raw
+# configuration editor, under views:).
+#
+# Entity IDs: the integration's start with smart_cut_height_ and use your zone names from
+# the Dreame app (raised_lawn, orchard, ...). The weather, warnings, Smart Irrigation and
+# rain-gauge tiles are this garden's; replace or delete them.
 icon: mdi:ruler
 max_columns: 3
 path: cut-height
@@ -12,23 +16,25 @@ sections:
     icon: mdi:grass
     type: heading
   - type: tile
-    entity: switch.cut_height_smart
+    entity: switch.smart_cut_height
     name: Smart cut height (master)
     features:
     - type: toggle
     grid_options:
       columns: 6
   - type: tile
-    entity: sensor.cut_height_managed_zones
-    name: Managing
+    entity: switch.smart_cut_height_write_to_mower
+    name: Write to mower
+    features:
+    - type: toggle
     grid_options:
       columns: 6
-  - entity: sensor.cut_height_plan
+  - entity: sensor.smart_cut_height_weather_plan
     grid_options:
       columns: 6
     name: Weather condition
     type: tile
-  - entity: sensor.cut_height_plan
+  - entity: sensor.smart_cut_height_weather_plan
     grid_options:
       columns: 6
     icon: mdi:ruler
@@ -44,7 +50,7 @@ sections:
     - selected_zone_label
     - state
     type: tile
-  - entity: sensor.cut_height_next_change
+  - entity: sensor.smart_cut_height_next_change
     grid_options:
       columns: 6
     name: Next change
@@ -56,20 +62,38 @@ sections:
     name: Next mow (checks an hour before)
     state_content: start_time
     type: tile
-  - entity: script.cut_height_skip
+  - entity: button.smart_cut_height_check_now
     grid_options:
-      columns: 12
+      columns: 4
+    name: Check now
+    type: tile
     hide_state: true
-    icon: mdi:calendar-remove
-    name: Skip height changes for 2 days
+  - entity: button.smart_cut_height_apply_now
+    grid_options:
+      columns: 4
+    name: Apply now
+    type: tile
+    hide_state: true
+    tap_action:
+      action: perform-action
+      confirmation:
+        text: Write the pending heights to the mower?
+      perform_action: button.press
+      target:
+        entity_id: button.smart_cut_height_apply_now
+  - entity: button.smart_cut_height_skip_2_days
+    grid_options:
+      columns: 4
+    name: Skip 2 days
+    type: tile
+    hide_state: true
     tap_action:
       action: perform-action
       confirmation:
         text: Hold cut-height changes for 2 days?
-      perform_action: script.turn_on
+      perform_action: button.press
       target:
-        entity_id: script.cut_height_skip
-    type: tile
+        entity_id: button.smart_cut_height_skip_2_days
   type: grid
 - cards:
   - type: heading
@@ -80,15 +104,14 @@ sections:
     heading: Only switched-on zones are read or changed
     heading_style: subtitle
   - type: tile
-    entity: input_boolean.cut_height_manage_zone_1
+    entity: switch.smart_cut_height_raised_lawn_smart_control
     name: Raised Lawn
-    icon: mdi:texture-box
     features:
     - type: toggle
     grid_options:
       columns: 6
   - type: tile
-    entity: input_number.cut_height_baseline_zone_1
+    entity: number.smart_cut_height_raised_lawn_usual_height
     name: Usual height
     features:
     - type: numeric-input
@@ -96,15 +119,14 @@ sections:
     grid_options:
       columns: 6
   - type: tile
-    entity: input_boolean.cut_height_manage_zone_2
+    entity: switch.smart_cut_height_orchard_smart_control
     name: Orchard
-    icon: mdi:texture-box
     features:
     - type: toggle
     grid_options:
       columns: 6
   - type: tile
-    entity: input_number.cut_height_baseline_zone_2
+    entity: number.smart_cut_height_orchard_usual_height
     name: Usual height
     features:
     - type: numeric-input
@@ -112,15 +134,14 @@ sections:
     grid_options:
       columns: 6
   - type: tile
-    entity: input_boolean.cut_height_manage_zone_3
-    name: Zone 3
-    icon: mdi:texture-box
+    entity: switch.smart_cut_height_front_yard_smart_control
+    name: Front Yard
     features:
     - type: toggle
     grid_options:
       columns: 6
   - type: tile
-    entity: input_number.cut_height_baseline_zone_3
+    entity: number.smart_cut_height_front_yard_usual_height
     name: Usual height
     features:
     - type: numeric-input
@@ -128,15 +149,14 @@ sections:
     grid_options:
       columns: 6
   - type: tile
-    entity: input_boolean.cut_height_manage_zone_4
-    name: Zone 4
-    icon: mdi:texture-box
+    entity: switch.smart_cut_height_nature_strip_smart_control
+    name: Nature Strip
     features:
     - type: toggle
     grid_options:
       columns: 6
   - type: tile
-    entity: input_number.cut_height_baseline_zone_4
+    entity: number.smart_cut_height_nature_strip_usual_height
     name: Usual height
     features:
     - type: numeric-input
@@ -153,7 +173,7 @@ sections:
   - type: heading
     heading: Added to each managed zone's usual height
     heading_style: subtitle
-  - entity: input_number.cut_height_rain_offset
+  - entity: number.smart_cut_height_after_heavy_rain
     features:
     - style: buttons
       type: numeric-input
@@ -161,7 +181,7 @@ sections:
       columns: 12
     name: After heavy rain (wet season)
     type: tile
-  - entity: input_number.cut_height_dry_season_offset
+  - entity: number.smart_cut_height_dry_season
     features:
     - style: buttons
       type: numeric-input
@@ -169,7 +189,7 @@ sections:
       columns: 12
     name: Dry season (May to Sep)
     type: tile
-  - entity: input_number.cut_height_hot_offset
+  - entity: number.smart_cut_height_heat_or_dry_spell
     features:
     - style: buttons
       type: numeric-input
@@ -177,7 +197,7 @@ sections:
       columns: 12
     name: Heat or dry spell
     type: tile
-  - entity: input_number.cut_height_heatwave_offset
+  - entity: number.smart_cut_height_heatwave
     features:
     - style: buttons
       type: numeric-input
@@ -191,17 +211,17 @@ sections:
     icon: mdi:tune-variant
     type: heading
   - entities:
-    - entity: input_number.cut_height_hot_max_temp
-      name: 'Hot day: BOM max from'
-    - entity: input_number.cut_height_heatwave_temp
+    - entity: number.smart_cut_height_hot_day_from
+      name: 'Hot day: forecast max from'
+    - entity: number.smart_cut_height_heatwave_3_day_mean_from
       name: 'Heatwave: 3-day mean from'
-    - entity: input_number.cut_height_heavy_rain
+    - entity: number.smart_cut_height_heavy_rain_from
       name: Heavy rain from (3 days or 24 h)
-    - entity: input_number.cut_height_grow_temp
+    - entity: number.smart_cut_height_growing_season_from
       name: Rain drop needs 7-day mean of
-    - entity: input_number.cut_height_dry_bucket
+    - entity: number.smart_cut_height_dry_at_water_balance
       name: Dry spell at water balance
-    - entity: input_number.cut_height_dry_deficit
+    - entity: number.smart_cut_height_dry_spell_deficit_from
       name: Dry spell fallback (21-day deficit)
     show_header_toggle: false
     type: entities
@@ -217,12 +237,15 @@ sections:
     show_current: true
     show_forecast: true
     type: weather-forecast
-  - entity: sensor.cut_height_plan
+  - entity: sensor.smart_cut_height_7_day_mean_temperature
     grid_options:
       columns: 6
-    icon: mdi:thermometer
     name: 7-day mean
-    state_content: t7
+    type: tile
+  - entity: sensor.smart_cut_height_rain_over_3_days
+    grid_options:
+      columns: 6
+    name: Rain, 3 days
     type: tile
   - entity: sensor.belgian_gardens_warnings
     grid_options:
@@ -240,30 +263,37 @@ sections:
     name: Rain, last 24 h (gauge)
     type: tile
   - type: tile
-    entity: sensor.cut_height_station_history
-    name: Station days on record
-    icon: mdi:weather-cloudy-clock
+    entity: sensor.smart_cut_height_weather_station_days_used
+    name: Station days used
     grid_options:
       columns: 6
-  - entity: input_boolean.cut_height_dry_spell
+  - entity: sensor.smart_cut_height_weather_plan
     grid_options:
       columns: 6
     name: Dry spell
+    icon: mdi:water-off-outline
+    state_content: dry_spell
     type: tile
-  - entity: input_datetime.cut_height_rain_until
+  - entity: sensor.smart_cut_height_weather_plan
     grid_options:
       columns: 6
     name: Low after rain until
+    icon: mdi:weather-pouring
+    state_content: rain_until
     type: tile
-  - entity: input_datetime.cut_height_heat_until
+  - entity: sensor.smart_cut_height_weather_plan
     grid_options:
       columns: 6
     name: Heat hold until
+    icon: mdi:thermometer-high
+    state_content: heat_until
     type: tile
-  - entity: input_datetime.cut_height_heatwave_until
+  - entity: sensor.smart_cut_height_weather_plan
     grid_options:
       columns: 6
     name: Heatwave hold until
+    icon: mdi:fire
+    state_content: wave_until
     type: tile
   column_span: 2
   type: grid
@@ -273,17 +303,14 @@ sections:
     icon: mdi:history
     type: heading
   - entities:
-    - sensor.cut_height_plan
-    - sensor.cut_height_next_change
+    - sensor.smart_cut_height_weather_plan
+    - sensor.smart_cut_height_next_change
     - number.a1_selected_zone_mowing_height
-    - automation.cut_height_check_before_mowing
-    - automation.cut_height_apply
-    - script.cut_height_skip
-    - switch.cut_height_smart
-    - input_boolean.cut_height_manage_zone_1
-    - input_boolean.cut_height_manage_zone_2
-    - input_boolean.cut_height_manage_zone_3
-    - input_boolean.cut_height_manage_zone_4
+    - switch.smart_cut_height
+    - switch.smart_cut_height_write_to_mower
+    - switch.smart_cut_height_raised_lawn_smart_control
+    - button.smart_cut_height_apply_now
+    - button.smart_cut_height_skip_2_days
     hours_to_show: 336
     type: logbook
   type: grid

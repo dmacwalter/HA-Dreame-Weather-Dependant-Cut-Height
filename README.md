@@ -1,25 +1,24 @@
-# Dreame weather-dependent cut height
+# Dreame Smart Cut Height
 
-A Home Assistant setup that sets a Dreame robot mower's cutting height per zone from the
-weather, tuned for Townsville: lower after heavy wet-season rain, a little higher
-through the dry season, higher again in heat, dry spells and heatwaves. Forecasts and
-heatwave warnings come from the Bureau of Meteorology. It asks you first, then does it
-itself. Mowing times stay in the Dreame app.
+A Home Assistant integration that sets a Dreame robot mower's cutting height per zone
+from the weather, tuned for the dry tropics (it was built in Townsville): lower after
+heavy wet-season rain, a little higher through the dry season, higher again in heat,
+dry spells and heatwaves. It asks you on your phone first, then does it itself. Mowing
+times stay in the Dreame app.
 
 Based on [edbyford/ha-navimow-weather-cut-height](https://github.com/edbyford/ha-navimow-weather-cut-height),
-rewritten for a Dreame A1 and a warm-season lawn in Townsville. The temperate seasonal
-rules (autumn raise, winter pause) are replaced by the tropical wet and dry seasons, and
-the rules are per zone. Notes and sources:
-[`docs/tropical-cut-height-notes.md`](docs/tropical-cut-height-notes.md).
+rewritten for a Dreame A1 and a warm-season lawn. The temperate seasonal rules (autumn
+raise, winter pause) are replaced by the tropical wet and dry seasons, and the rules are
+per zone. Notes and sources: [`docs/tropical-cut-height-notes.md`](docs/tropical-cut-height-notes.md).
 
-> Shared as a reference for how I did it, not a turnkey add-on. Change the entity names
-> to match your setup.
+It started as a YAML package with Jinja macros; that version is kept in
+[`legacy/`](legacy/) for reference and is no longer maintained.
 
 ## How it decides
 
-**Zones are opt-in.** Each zone has its own switch and **usual height** (baseline).
-Only switched-on zones are read or changed; a zone that is off is never touched. On my
-mower only the Raised Lawn (3.5 cm) is on. A master switch turns the whole thing off.
+Zones are opt-in. Each zone in the Dreame app gets its own smart control switch and
+usual height. Only switched-on zones are read or changed; a zone that is off is never
+touched. On my mower only the Raised Lawn (3.5 cm) is on.
 
 The weather picks an offset, which is added to the usual height of every managed zone:
 
@@ -28,160 +27,160 @@ The weather picks an offset, which is added to the usual height of every managed
 | Normal (wet season) | October to April with none of the below | 0 | 3.5 cm |
 | After heavy rain | wet season only: 25 mm in 3 days (or 24 h at your gauge) with a 7-day mean of 23 °C or more; held 5 days | -0.5 | 3.0 cm |
 | Dry season | May to September with none of the rules below | +0.5 | 4.0 cm |
-| Heat | BOM forecast max 34 °C or more today or in the next 2 days; held 3 days | +0.5 | 4.0 cm |
+| Heat | forecast max 34 °C or more today or in the next 2 days; held 3 days | +0.5 | 4.0 cm |
 | Dry spell | Smart Irrigation water balance -15 mm or lower, until it is back to 0 | +0.5 | 4.0 cm |
-| Heatwave | a BOM heatwave warning for your area, or a 3-day mean of (max + min) / 2 at 29.5 °C or more; held 3 days | +1.0 | 4.5 cm |
+| Heatwave | a heatwave warning for your area, or a 3-day mean of (max + min) / 2 at 29.5 °C or more; held 3 days | +1.0 | 4.5 cm |
 
 - Seasons are the Bureau of Meteorology's for northern Australia: wet 1 October to
-  30 April, dry 1 May to 30 September.
+  30 April, dry 1 May to 30 September. They are fixed in `plan.py`; south of the tropics
+  the rules will need changing.
 - Heatwave beats heat or dry spell, which beat heavy rain, which beats the dry season.
-- **Raise at once, lower slowly:** one 0.5 cm step at most every 2 days.
+- Raise at once, lower slowly: one 0.5 cm step at most every 2 days.
 - Targets stay on the A1's 3.0 to 7.0 cm range, in 0.5 cm steps.
-- Every threshold and offset is a helper you can change from the dashboard.
+- Every threshold and offset is a number entity you can change from a dashboard.
 
 ## Ask, then apply
 
-- **An hour before each scheduled mow** (from `calendar.a1_schedule`, the mower's active
-  app schedule), the plan is fixed and each zone's height is read from the mower. Any
-  change gets one phone notification with **Apply now** and **Skip 2 days**.
-- With no answer, it's written **5 minutes before the mow** if the mower is docked,
-  otherwise at its next dock.
-- The height is read back 2 minutes after the write, and you're told if it didn't take.
+- An hour before each scheduled mow (from the mower's schedule calendar), the plan's
+  memory is saved and each managed zone's height is read from the mower. Any change gets
+  one phone notification with Apply now and Skip 2 days.
+- With no answer, it's written 5 minutes before the mow if the mower is docked,
+  otherwise once it has been docked for 2 minutes.
+- Before writing, the height is read again; if someone changed it in the app since the
+  check, that zone is left alone. The height is read back 2 minutes after the write,
+  and you're told if it didn't take.
 
-Heights are written with the integration's `dreame_lawn_mower.plan_zone_mowing_preference_update`
-action, with an explicit zone id, so only the height for that zone changes. Reading a
-zone's height means pointing Home Assistant's zone selector (`select.a1_zone_2`) at it;
-that selector is local to Home Assistant and doesn't change anything on the mower.
+Heights are written with the Dreame integration's
+`dreame_lawn_mower.plan_zone_mowing_preference_update` action, with an explicit zone
+id, so only the height for that zone changes. Reading a zone's height means pointing
+Home Assistant's map and zone selectors at it; those selectors are local to Home
+Assistant and change nothing on the mower. They are put back afterwards.
 
-## Scheduling: leave it in the Dreame app
+Two switches keep it safe while you try it:
 
-The Dreame app keeps the schedule, and Home Assistant just follows it through the
-calendar. That way the mower still mows on time if Home Assistant is down, and you can
-change the schedule in the app without touching this.
+- `switch.smart_cut_height` (master): off, nothing runs before a mow and phone taps are
+  ignored. Check now still works.
+- `switch.smart_cut_height_write_to_mower`: off, nothing is ever sent to the mower.
+  Checks still run and notify you, marked "Preview only".
 
-My schedule ("Before watering": Tuesday, Thursday and Saturday evenings) already lines up
-with the irrigation, which runs in the early hours of Wednesday, Friday and Sunday. The
-lawn is cut dry, then watered.
-
-## Smart Irrigation
-
-- **Dry spells** come from Smart Irrigation's water balance for the Raised Lawn
-  (`sensor.smart_irrigation_raised_lawn_bucket`). Unlike a plain ET-minus-rain deficit,
-  it knows about the watering, so a dry spell means the irrigation is falling behind (for
-  example under council restrictions), not just that it hasn't rained.
-- **Heavy rain** also counts your own gauge (`sensor.gw3000c_24h_rain_piezo`), so a local
-  downpour the model missed still counts.
-- Both are optional. If either sensor is unavailable, the plan falls back to Open-Meteo.
-
-## On the mower card
-
-`dashboards/cut_height_card.yaml` is the Dreame
-[lawn-mower-card](https://github.com/EvotecIT/lovelace-lawn-mower-card) with the
-smart settings added:
-
-- **Zone choice:** left to its own discovery, the card only shows the zone selector
-  when the mowing action is "Zone". On "All area" you can't pick which zone's height
-  you're editing. Listing the zone selector and the zone height explicitly keeps
-  them in the Mower settings sheet.
-- **Smart cut height settings** in the same sheet: an on/off switch, each zone's usual
-  height, the three offsets and the main thresholds.
-- **Tiles** for the weather condition, the target height and the next pending change,
-  plus a **Skip height changes 2 days** button.
-
-The card shows only number, switch, select and time entities as controls, so the
-package mirrors its `input_number` helpers as `number.cut_height_*` entities, and the
-automations as `switch.cut_height_smart`.
+Both start off.
 
 ## Weather
 
-- **Bureau of Meteorology** (the `bureau_of_meteorology` integration): the daily
-  forecast for the lawn's location supplies the max and min for today and the days
-  ahead, and its warnings sensor flags a heatwave warning. On the day I set this up BOM
-  had 31 °C for the next few days where Open-Meteo had 29.6 to 30.5 °C.
-- **Your weather station** supplies the past 21 days: daily max, min and mean
-  temperature and rain, read from Home Assistant's long-term statistics with
-  `recorder.get_statistics` (`sensor.cut_height_station_history`). Over three weeks in
-  November my Ecowitt agreed with Open-Meteo on temperature to within about 0.5 °C most
-  days, but measured 10.6 mm on the wettest day where Open-Meteo had 20.1 mm. Rain is
-  what drives the drop after heavy rain, so local measurement matters.
-- **[Open-Meteo](https://open-meteo.com/)** (free, no key) fills any day the station
-  or BOM is missing, and supplies evapotranspiration (used only when the Smart
-  Irrigation water balance is unavailable). No location is stored in these files; the
-  URL is built from `zone.home`.
+All sources are chosen in the integration's settings and can be changed at any time
+(Settings > Devices & services > Dreame Smart Cut Height > Configure > Weather sources).
+Only the location is required.
 
-Per day, the first source with a value wins: past days take the station, then
-Open-Meteo; today and the days ahead take BOM's max and min, then Open-Meteo. Today's
-rain is what the station has measured so far. To use another source, change the
-entity IDs in the station-history sensor in the package, or the source list at the
-bottom of `custom_templates/cut_height.jinja`.
-- **Your own gauge and Smart Irrigation**, as below.
+- [Open-Meteo](https://open-meteo.com/) (free, no key) for the lawn's latitude and
+  longitude: the past 21 days and the next 5, including evapotranspiration. It fills any
+  day another source is missing.
+- A forecast weather entity, for example the Bureau of Meteorology integration's: its
+  daily max and min replace Open-Meteo's for today and the days ahead. On the day I set
+  this up BOM had 31 °C for the next few days where Open-Meteo had 29.6 to 30.5 °C.
+- A weather station's temperature and rain-total sensors: past days take the daily max,
+  min and mean temperature and the day's rain from Home Assistant's long-term
+  statistics. The rain sensor needs to be an increasing total (yearly or event rain)
+  with statistics. Over three weeks in November my Ecowitt agreed with Open-Meteo on
+  temperature to within about 0.5 °C most days, but measured 10.6 mm on the wettest day
+  where Open-Meteo had 20.1 mm. Rain is what drives the drop, so local measurement
+  matters.
+- A rain-in-the-last-24-hours sensor, so a local downpour the model missed still counts
+  as heavy rain.
+- A Smart Irrigation water balance (bucket) for the lawn. Unlike a plain ET-minus-rain
+  deficit it knows about the watering, so a dry spell means the irrigation is falling
+  behind (for example under council restrictions). Without it the dry spell comes from
+  Open-Meteo's 21-day ET0 minus rain.
+- A warnings sensor (the BOM integration has one): a heatwave warning in its state or
+  `warnings` attribute counts as a heatwave.
 
-## Tested
-
-- `reference/plan.py` is the logic in Python; `custom_templates/cut_height.jinja` is the
-  same logic as Jinja macros, which is what Home Assistant runs.
-- `tests/test_plan.py`: unit tests for each rule.
-- `tests/test_parity_plan_ha.py`: renders the macros on a live Home Assistant and checks
-  they match the Python for 67 cases (7 fixed, 60 random). Read-only.
-- `tools/replay.py`: replays the rules over past weather, mowing day by mowing day, so
-  you can tune the thresholds before installing.
-
-## Layout
-
-- `packages/dreame_cut_height.yaml`: the Open-Meteo sensor, the plan sensor, helpers and
-  tunables, the read and notify scripts, and the three automations.
-- `custom_templates/cut_height.jinja`: the zone list and the decision macros.
-- `reference/plan.py`: the same decision in Python (the test oracle).
-- `tools/replay.py`: replay over past weather.
-- `dashboards/cut_height_card.yaml`: the lawn-mower-card with zone choice and the
-  smart settings.
-- `dashboards/cut_height_view.yaml`: a view with everything on one screen (settings,
-  weather it's using, history of changes).
-- `docs/tropical-cut-height-notes.md`: the rules, their reasoning and sources.
-- `scripts/`: SSH/API helper and a deploy script (set `HA_IP`, `HA_KEY`, `HA_TOKEN`).
-
-## Setup
+## Install
 
 1. Install [EvotecIT/homeassistant-dreamelawnmower](https://github.com/EvotecIT/homeassistant-dreamelawnmower)
-   (HACS) and check you have `lawn_mower.<mower>`, `calendar.<mower>_schedule`,
-   `binary_sensor.<mower>_docked`, `select.<mower>_map`, `select.<mower>_zone` and
-   `number.<mower>_selected_zone_mowing_height`.
-2. In the app, set the map's mowing preferences to **Custom** (per zone), not Global.
-3. Edit the entity IDs at the top of `packages/dreame_cut_height.yaml`, the zone list
-   and the two optional sources in `custom_templates/cut_height.jinja`, and the map
-   option (`Back Yard (#2)`) in the read script.
-4. Copy `custom_templates/cut_height.jinja` to `/config/custom_templates/` and
-   `packages/dreame_cut_height.yaml` to `/config/packages/`, with packages enabled:
-   ```yaml
-   homeassistant:
-     packages: !include_dir_named packages
-   ```
-5. Check the config and restart.
-6. Set the helper values in `packages/cut_height_initial_values.md`, including resetting
-   four date helpers.
-7. Before trusting it, do one supervised write: with the mower docked, run
-   `dreame_lawn_mower.plan_zone_mowing_preference_update` with `zone_id: 1` and a height,
-   first with `execute: false` (a dry run, shown in a notification), then for real, and
-   check the app shows the new height for that zone.
+   and, in the Dreame app, set the map's mowing preferences to Custom (per zone), not
+   Global.
+2. In HACS, add this repository as a custom repository (type Integration), install
+   Dreame Smart Cut Height and restart Home Assistant. Without HACS, copy
+   `custom_components/dreame_smart_cut_height` into `/config/custom_components/` and
+   restart.
+3. Settings > Devices & services > Add integration > Dreame Smart Cut Height. Pick the
+   mower; the docked sensor, schedule calendar, map and zone selectors and zone height
+   are looked up on the mower's device for you to check. Then the map whose zones you
+   manage, then the weather sources.
+4. On the new Smart cut height device, switch on the zones you want managed and set
+   their usual heights.
+5. Turn on the master switch. Watch a few "Preview only" notifications.
+6. Do one supervised write: with the mower docked, press Check now, then turn on Write
+   to mower and press Apply now, and check the app shows the new height for that zone.
 
-`scripts/deploy.sh` does steps 4 and 5 if you have the Terminal & SSH app.
+Zones come from the Dreame zone selector's options ("Raised Lawn (#1)" or "Zone #3").
+Zones added or renamed in the app later are picked up when you save the Mower entities
+page of the settings.
 
-The `input_*` helpers can also be created in the UI (Settings > Devices & services >
-Helpers) instead of in the package, as long as their entity IDs match. Remove their
-sections from the package if you do, or Home Assistant will report duplicates. That's how
-they're set up on my install, because the tool I deployed with can't write `input_*`
-keys to package files.
+## Entities
 
-## Test
+On the Smart cut height device (`<zone>` is the zone's name, for example `raised_lawn`):
 
-    python3 -m venv .venv && .venv/bin/pip install pytest
-    .venv/bin/python -m pytest          # unit tests; live parity test runs if HA_URL/HA_TOKEN set
-    .venv/bin/python -m tools.replay --lat -19.26 --lon 146.82 --start 2024-07-01 --end 2026-06-30
+- `switch.smart_cut_height`, `switch.smart_cut_height_write_to_mower`,
+  `switch.smart_cut_height_<zone>_smart_control`
+- `number.smart_cut_height_<zone>_usual_height`, the four offsets (after heavy rain,
+  heat or dry spell, heatwave, dry season) and the six thresholds
+- `sensor.smart_cut_height_weather_plan` (the condition; attributes include the target
+  heights, the holds and how many station and forecast days were used),
+  `sensor.smart_cut_height_next_change`, `sensor.smart_cut_height_managed_zones`,
+  `sensor.smart_cut_height_<zone>_target_height`, the offset, 3-day rain, 7-day mean and
+  21-day deficit
+- `button.smart_cut_height_check_now`, `button.smart_cut_height_apply_now`,
+  `button.smart_cut_height_skip_2_days`
+- Actions `dreame_smart_cut_height.check`, `.apply` (needs `confirm: true`) and `.skip`
+
+`dashboards/cut_height_view.yaml` is a dashboard view with all of it on one screen, and
+`dashboards/cut_height_card.yaml` is the Dreame
+[lawn-mower-card](https://github.com/EvotecIT/lovelace-lawn-mower-card) with zone
+choice and the main settings added.
+
+## Scheduling: leave it in the Dreame app
+
+The Dreame app keeps the schedule, and Home Assistant follows it through the calendar.
+The mower still mows on time if Home Assistant is down, and you can change the schedule
+in the app without touching this. Mine ("Before watering": Tuesday, Thursday and
+Saturday evenings) lines up with the irrigation in the early hours of the next day, so
+the lawn is cut dry, then watered.
+
+## Moving from the YAML package
+
+On its first start the integration copies the package's settings and memory from its
+helpers if they exist: thresholds, offsets, usual heights, which zones are on, the
+dry-spell latch, the hold dates, the last lowering, a skip and anything pending. After
+that it keeps its own copy and the helpers are no longer used.
+
+1. Install and add the integration as above, with both switches off. Compare
+   `sensor.smart_cut_height_weather_plan` with `sensor.cut_height_plan` for a few days.
+2. Turn off the package's master switch (`switch.cut_height_smart`), then turn on the
+   integration's. Its phone buttons have different action names from the package's, so
+   a tap only ever reaches one of them.
+3. After one supervised apply, turn on Write to mower.
+4. Remove `packages/dreame_cut_height.yaml` and `custom_templates/cut_height.jinja`,
+   restart, and delete the `cut_height_*` helpers if you made them in the UI. Point
+   dashboards at the new entities (see `dashboards/`).
+
+## Tests
+
+    python3 -m venv .venv && .venv/bin/pip install -r requirements_test.txt
+    .venv/bin/python -m pytest
+    python3 tools/replay.py --lat -19.26 --lon 146.82 --start 2024-07-01 --end 2026-06-30
+
+- `tests/test_plan.py`: each weather rule.
+- `tests/test_weather_merge.py`: source precedence (including a snapshot from my live
+  setup) and zone labels.
+- `tests/test_integration.py`: set-up and settings, entity lookup on the mower's device,
+  the pre-mow check, apply and read-back, waiting for the dock, the stale-height guard,
+  phone actions and skip, against a fake mower in Home Assistant's test harness.
+- `tools/replay.py` replays the rules over past weather, mowing day by mowing day, so
+  you can tune the thresholds for your location. It needs only Python.
 
 ## Requirements
 
-- Home Assistant 2025.4 or newer (the read script updates a variable inside a loop).
-  Built on 2026.11.
+- Home Assistant 2026.2 or newer (tested on 2026.2 and running on 2026.11).
 - EvotecIT/homeassistant-dreamelawnmower, built against v0.2.196 on a Dreame A1. It's
   unofficial and uses Dreame's cloud, so it can break if Dreame changes it. Its write
   actions are marked for supervised use, so keep an eye on the read-back messages at

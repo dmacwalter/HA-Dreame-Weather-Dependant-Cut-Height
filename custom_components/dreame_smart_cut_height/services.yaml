@@ -1,0 +1,22 @@
+check:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: dreame_smart_cut_height
+apply:
+  fields:
+    confirm:
+      required: true
+      selector:
+        boolean:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: dreame_smart_cut_height
+skip:
+  fields:
+    config_entry_id:
+      selector:
+        config_entry:
+          integration: dreame_smart_cut_height

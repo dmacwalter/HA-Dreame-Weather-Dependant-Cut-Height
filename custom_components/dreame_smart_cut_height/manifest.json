@@ -1,0 +1,22 @@
+{
+  "domain": "dreame_smart_cut_height",
+  "name": "Dreame Smart Cut Height",
+  "after_dependencies": [
+    "calendar",
+    "input_boolean",
+    "input_datetime",
+    "input_number",
+    "input_text",
+    "mobile_app",
+    "recorder",
+    "weather"
+  ],
+  "codeowners": ["@dmacwalter"],
+  "config_flow": true,
+  "documentation": "https://github.com/dmacwalter/HA-Dreame-Weather-Dependant-Cut-Height",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/dmacwalter/HA-Dreame-Weather-Dependant-Cut-Height/issues",
+  "requirements": [],
+  "version": "0.3.0"
+}

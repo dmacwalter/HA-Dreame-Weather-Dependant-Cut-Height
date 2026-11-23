@@ -4,7 +4,7 @@
         [--baseline 3.5] [--days tue,thu,sat] [--csv out.csv]
 
 Fetches daily weather from the Open-Meteo archive (free, no key; nothing is stored
-unless you pass --csv), runs reference/plan.py on each mowing day as the package does
+unless you pass --csv), runs the integration's plan.py on each mowing day as the integration does
 (an hour before the mow) and applies any change before that mow. Prints, per year from
 July to June, how many mowing days fell in each condition and every height change. Use
 it to tune the thresholds before installing.
@@ -21,7 +21,16 @@ import urllib.request
 from collections import Counter, defaultdict
 from datetime import date
 
-from reference.plan import plan, zone_next
+import importlib.util
+import pathlib
+
+# Load plan.py on its own so the replay runs without Home Assistant installed.
+_PLAN = (pathlib.Path(__file__).resolve().parent.parent
+         / "custom_components" / "dreame_smart_cut_height" / "plan.py")
+_spec = importlib.util.spec_from_file_location("cut_height_plan", _PLAN)
+_plan = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_plan)
+plan, zone_next = _plan.plan, _plan.zone_next
 
 DAILY = ["temperature_2m_mean", "temperature_2m_max", "temperature_2m_min",
          "precipitation_sum", "et0_fao_evapotranspiration"]
