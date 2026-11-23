@@ -10,7 +10,8 @@ Helpers, or `input_number.set_value`):
 | `input_number.cut_height_rain_offset` | -0.5 | added after heavy rain while growing (3.5 → 3.0) |
 | `input_number.cut_height_hot_offset` | 0.5 | added in heat or a dry spell (3.5 → 4.0) |
 | `input_number.cut_height_heatwave_offset` | 1.0 | added in a heatwave (3.5 → 4.5) |
-| `input_number.cut_height_grow_temp` | 23 | 7-day mean (°C) at or above which the grass is in its growing season |
+| `input_number.cut_height_dry_season_offset` | 0.5 | added May to September when nothing else applies (3.5 → 4.0) |
+| `input_number.cut_height_grow_temp` | 23 | wet season only: 7-day mean (°C) at or above which heavy rain lowers the cut |
 | `input_number.cut_height_heavy_rain` | 25 | rain (mm) in 3 days, or 24 h at your gauge, that counts as heavy |
 | `input_number.cut_height_hot_max_temp` | 34 | a day this hot (max), today or the next 2 days, counts as heat |
 | `input_number.cut_height_heatwave_temp` | 29.5 | heatwave when 3 days average this, using (max + min) / 2 |

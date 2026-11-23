@@ -25,7 +25,11 @@ DEFAULTS = dict(
     rain_offset=-0.5,   # cm added to the baseline after heavy rain while growing
     hot_offset=0.5,     # cm added in heat or a dry spell
     wave_offset=1.0,    # cm added in a heatwave
+    dry_season_offset=0.5,  # cm added in the dry season (May-Sep) when nothing else applies
 )
+
+# Bureau of Meteorology seasons for northern Australia: wet 1 Oct - 30 Apr, dry 1 May - 30 Sep.
+WET_MONTHS = (10, 11, 12, 1, 2, 3, 4)
 
 RAIN_HOLD_DAYS = 5    # low height held this long after heavy rain
 HEAT_HOLD_DAYS = 3    # raised height held this long after forecast heat
@@ -46,12 +50,14 @@ def _plus(today, days):
 
 def plan(*, daily, i, today, rain_until="1970-01-01", heat_until="1970-01-01",
          wave_until="1970-01-01", dry=False, last_lower="1970-01-01",
-         bucket=None, local_rain=None, p=None):
+         bucket=None, local_rain=None, heat_warning=False, p=None):
     """daily: dict of lists with keys temperature_2m_mean, temperature_2m_max,
     temperature_2m_min, precipitation_sum, et0_fao_evapotranspiration.
     i: index of today (>= 20). Dates are 'YYYY-MM-DD'.
     bucket: Smart Irrigation water balance in mm (negative = deficit), or None.
-    local_rain: rain in the last 24 h at your own gauge in mm, or None."""
+    local_rain: rain in the last 24 h at your own gauge in mm, or None.
+    heat_warning: a Bureau of Meteorology heatwave warning is current for the area.
+    For forecast days, pass the BOM forecast max/min in the daily arrays where you have it."""
     p = {**DEFAULTS, **(p or {})}
     tm = [float(x or 0) for x in daily["temperature_2m_mean"]]
     tx = [float(x or 0) for x in daily["temperature_2m_max"]]
@@ -61,7 +67,8 @@ def plan(*, daily, i, today, rain_until="1970-01-01", heat_until="1970-01-01",
     n = len(tm)
 
     t7 = _mean(tm[i - 6:i + 1])
-    growing = t7 >= p["grow"]
+    wet_season = int(today[5:7]) in WET_MONTHS
+    growing = wet_season and t7 >= p["grow"]
     rain3 = sum(rain[i - 2:i + 1])
     deficit = sum(et0[i - 20:i + 1]) - sum(rain[i - 20:i + 1])
 
@@ -77,7 +84,7 @@ def plan(*, daily, i, today, rain_until="1970-01-01", heat_until="1970-01-01",
     # at or above t95, for any 3-day window ending today..+2.
     dmt = [(a + b) / 2 for a, b in zip(tx, tn)]
     ehi = max(_mean(dmt[k - 2:k + 1]) for k in ahead) - p["t95"]
-    wave_ahead = ehi >= 0
+    wave_ahead = ehi >= 0 or bool(heat_warning)
     if hot_ahead or wave_ahead:
         heat_until = _plus(today, HEAT_HOLD_DAYS)
     if wave_ahead:
@@ -104,12 +111,14 @@ def plan(*, daily, i, today, rain_until="1970-01-01", heat_until="1970-01-01",
         why, offset = ("heat" if hot else "dry spell"), p["hot_offset"]
     elif wet:
         why, offset = "after heavy rain", p["rain_offset"]
+    elif not wet_season:
+        why, offset = "dry season", p["dry_season_offset"]
     else:
         why, offset = "normal", 0.0
 
     since_lower = (date.fromisoformat(today) - date.fromisoformat(last_lower)).days
     return dict(t7=round(t7, 1), rain3=round(rain3, 1), deficit=round(deficit, 1),
-                ehi=round(ehi, 1), growing=growing, heavy=heavy, hot=hot, wave=wave, dry=dry,
+                ehi=round(ehi, 1), wet_season=wet_season, growing=growing, heavy=heavy, hot=hot, wave=wave, dry=dry,
                 rain_until=rain_until, heat_until=heat_until, wave_until=wave_until,
                 offset=float(offset), why=why, can_lower=since_lower >= LOWER_EVERY_DAYS)
 

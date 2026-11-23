@@ -11,13 +11,33 @@ seasonal rules.
 
 | Condition | Rule (defaults) | Offset |
 | --- | --- | --- |
-| Normal | none of the below | 0 |
-| After heavy rain | 25 mm or more in 3 days (Open-Meteo), or 24 h at your gauge, while the 7-day mean is 23 °C or more; held 5 days | -0.5 cm |
-| Heat | a max of 34 °C or more today or in the next 2 days; held 3 days | +0.5 cm |
+| Normal | wet season (October to April), none of the below | 0 |
+| After heavy rain | wet season only: 25 mm or more in 3 days (Open-Meteo), or 24 h at your gauge, while the 7-day mean is 23 °C or more; held 5 days | -0.5 cm |
+| Dry season | May to September, none of the below | +0.5 cm |
+| Heat | a BOM forecast max of 34 °C or more today or in the next 2 days; held 3 days | +0.5 cm |
 | Dry spell | Smart Irrigation water balance at -15 mm or below, until it is back to 0 | +0.5 cm |
-| Heatwave | a 3-day mean of (max + min) / 2 at 29.5 °C or more, in any window ending today to 2 days ahead; held 3 days | +1.0 cm |
+| Heatwave | a current BOM heatwave warning, or a 3-day mean of (max + min) / 2 at 29.5 °C or more in any window ending today to 2 days ahead; held 3 days | +1.0 cm |
 
-Priority, highest first: heatwave, heat or dry spell, heavy rain, normal. Heat wins over
+Priority, highest first: heatwave, heat or dry spell, heavy rain, dry season, normal.
+
+### Townsville's seasons
+
+The Bureau of Meteorology defines the northern Australian wet season as 1 October to
+30 April and the dry season as 1 May to 30 September, and those are the months used
+here. Townsville's real rains usually come later than October, so October to December
+mostly behave like a hot build-up: heat and dry-spell rules do the work, and the
+after-rain drop only fires on a genuine downpour.
+
+- **Wet season.** Warm-season grass grows fastest, and a big fall pushes a surge, so
+  heavy rain takes the cut down half a centimetre for five days. The 7-day mean guard
+  (23 °C) stops a cool, wet April week from triggering it.
+- **Dry season.** Nights are cooler, growth slows, rain is scarce and council watering
+  restrictions apply. A slightly taller cut (+0.5 cm by default) shades the soil and
+  holds moisture, and with slower growth the mower isn't fighting to keep up. Heavy rain
+  doesn't lower the cut in the dry season. Set the dry-season offset to 0 to mow at the
+  baseline all year.
+- **Coming back.** On 1 October the height steps back down from the dry-season height,
+  half a centimetre per apply. Heat wins over
 rain on purpose: a hot spell straight after a downpour is when the grass is most
 stressed, and cutting low then works against it. Swap the order in `cut_height_plan()` and
 `reference/plan.py` if you'd rather.
@@ -63,6 +83,15 @@ summer averages (January mean max 31.5 °C, mean min 24.4 °C, so a typical dail
 summers. It should flag the real heatwaves you remember, and not every warm week in
 January.
 
+### Bureau of Meteorology data
+
+The forecast max and min for today and the next days come from the BOM forecast for
+the lawn's location (through the `bureau_of_meteorology` integration), with Open-Meteo
+as the fallback and the source for past days, rain history and evapotranspiration. A
+BOM heatwave warning current for the location counts as a heatwave on its own, whatever
+the 29.5 °C estimate says, because the Bureau's warning uses the full excess heat factor
+and the real local percentile.
+
 ### Hot day threshold
 
 34 °C is a little above Townsville's summer typical maximum (31.5 °C in January at the
@@ -86,6 +115,10 @@ wet day. This setup only changes the height. It doesn't start, stop or reschedul
 and it never touches the app schedule.
 
 ## Sources
+
+- Bureau of Meteorology, *Climate in Australia* (northern wet season 1 October to
+  30 April, dry season 1 May to 30 September):
+  https://www.bom.gov.au/resources/learn-and-explore/climate-knowledge-centre
 
 - Bureau of Meteorology, *What is a heatwave?* (heatwave definition and use of the EHF):
   https://www.bom.gov.au/resources/learn-and-explore/heatwave-knowledge-centre/what-is-a-heatwave

@@ -33,6 +33,7 @@ control_entities:
   - number.cut_height_rain_offset
   - number.cut_height_hot_offset
   - number.cut_height_heatwave_offset
+  - number.cut_height_dry_season_offset
   - number.cut_height_hot_max_temp
   - number.cut_height_heatwave_temp
   - number.cut_height_heavy_rain

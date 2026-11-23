@@ -23,7 +23,7 @@ MACRO = (pathlib.Path(__file__).parent.parent / "custom_templates" / "cut_height
 MACRO = MACRO.split("{#- Live inputs.")[0]
 KEYS = ["temperature_2m_mean", "temperature_2m_max", "temperature_2m_min",
         "precipitation_sum", "et0_fao_evapotranspiration"]
-COMPARE = ("why", "offset", "can_lower", "growing", "heavy", "hot", "wave", "dry",
+COMPARE = ("why", "offset", "can_lower", "wet_season", "growing", "heavy", "hot", "wave", "dry",
            "rain_until", "heat_until", "wave_until")
 
 
@@ -62,6 +62,7 @@ def random_case(seed):
                 last_lower=day(-4, 1),
                 bucket=rng.choice([None, round(rng.uniform(-30, 10), 1)]),
                 local_rain=rng.choice([None, round(rng.uniform(0, 40), 1)]),
+                heat_warning=rng.random() < 0.15,
                 baseline=rng.choice([3.0, 3.5, 4.0, 5.0, 6.5]),
                 height=rng.choice([x / 2 for x in range(6, 15)]))
 
@@ -77,8 +78,12 @@ CASES = [
     dict(daily=weather(27), today="2026-12-10", bucket=-20.0, baseline=3.5, height=3.5),
     dict(daily=weather(27, et0=4), today="2026-12-10", bucket=None, baseline=3.5, height=4.5,
          last_lower="2026-12-08"),
-    dict(daily=weather(20, overrides={TODAY: dict(rain=40)}), today="2026-07-10",
+    dict(daily=weather(24, overrides={TODAY: dict(rain=40)}), today="2026-07-10",
          bucket=None, baseline=3.0, height=3.0),
+    dict(daily=weather(27, overrides={TODAY: dict(rain=40)}), today="2026-10-05",
+         bucket=5.0, baseline=3.5, height=3.5),
+    dict(daily=weather(27), today="2026-12-10", bucket=5.0, heat_warning=True,
+         baseline=3.5, height=3.5),
 ] + [random_case(s) for s in range(60)]
 
 
@@ -90,16 +95,16 @@ def _j(x):
 def test_jinja_matches_oracle(c):
     c = {"dry": False, "rain_until": "1970-01-01", "heat_until": "1970-01-01",
          "wave_until": "1970-01-01", "last_lower": "1970-01-01",
-         "bucket": None, "local_rain": None, **c}
+         "bucket": None, "local_rain": None, "heat_warning": False, **c}
     state = {k: c[k] for k in ("dry", "rain_until", "heat_until", "wave_until", "last_lower",
-                               "bucket", "local_rain")}
+                               "bucket", "local_rain", "heat_warning")}
     expected = plan(daily=c["daily"], i=TODAY, today=c["today"], p=DEFAULTS, **state)
     expected_next = zone_next(expected["offset"], expected["can_lower"], c["baseline"], c["height"])
     args = ", ".join([
         json.dumps({k: c["daily"][k] for k in KEYS}), str(TODAY), json.dumps(c["today"]),
         json.dumps(c["rain_until"]), json.dumps(c["heat_until"]), json.dumps(c["wave_until"]),
         json.dumps(c["dry"]), json.dumps(c["last_lower"]), _j(c["bucket"]), _j(c["local_rain"]),
-        json.dumps(DEFAULTS),
+        json.dumps(c["heat_warning"]), json.dumps(DEFAULTS),
     ])
     template = (MACRO + "{% set r = cut_height_plan(" + args + ") | from_json %}"
                 "{{ dict(plan=r, next=cut_height_zone_next(r.offset, r.can_lower, "

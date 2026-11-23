@@ -43,11 +43,46 @@ def test_local_gauge_counts_as_heavy_rain():
     assert r["why"] == "after heavy rain"
 
 
-def test_heavy_rain_outside_growing_season_does_nothing():
-    d = weather(mean=20, overrides={TODAY: dict(rain=40)})
+def test_heavy_rain_in_the_dry_season_does_not_lower():
+    # Warm enough, but July is BOM dry season: no after-rain drop.
+    d = weather(mean=24, overrides={TODAY: dict(rain=40)})
     r = run(d, today="2026-07-10")
-    assert r["heavy"] and not r["growing"]
+    assert r["heavy"] and not r["wet_season"] and not r["growing"]
+    assert r["why"] == "dry season"
+
+
+def test_heavy_rain_in_a_cool_wet_season_week_does_not_lower():
+    d = weather(mean=21, overrides={TODAY: dict(rain=40)})
+    r = run(d, today="2026-04-20")
+    assert r["wet_season"] and not r["growing"]
     assert r["why"] == "normal"
+
+
+def test_wet_season_starts_in_october():
+    d = weather(**NORMAL, overrides={TODAY: dict(rain=40)})
+    assert run(d, today="2026-10-05")["why"] == "after heavy rain"
+    assert run(weather(**NORMAL), today="2026-09-28")["why"] == "dry season"
+
+
+def test_dry_season_raises_half_a_centimetre():
+    r = run(weather(mean=22), today="2026-07-10")
+    assert (r["why"], r["offset"]) == ("dry season", 0.5)
+    assert raised_lawn(r, 3.5) == 4.0
+    # back to the baseline in October, one step
+    r = run(weather(**NORMAL), today="2026-10-01")
+    assert raised_lawn(r, 4.0) == 3.5
+
+
+def test_bom_heatwave_warning_counts_as_heatwave():
+    r = run(weather(**NORMAL), heat_warning=True)
+    assert r["why"] == "heatwave" and r["wave_until"] == "2026-12-13"
+    assert raised_lawn(r, 3.5) == 4.5
+
+
+def test_heat_beats_dry_season():
+    d = weather(mean=24, overrides={TODAY + 1: dict(max_=35)})
+    r = run(d, today="2026-09-10")
+    assert r["why"] == "heat" and r["offset"] == 0.5
 
 
 def test_hot_forecast_raises_half_a_centimetre_and_holds():

@@ -1,12 +1,15 @@
 # Dreame weather-dependent cut height
 
 A Home Assistant setup that sets a Dreame robot mower's cutting height per zone from the
-weather: lower after heavy wet-season rain, higher in heat, dry spells and heatwaves. It
-asks you first, then does it itself. Mowing times stay in the Dreame app.
+weather, tuned for Townsville: lower after heavy wet-season rain, a little higher
+through the dry season, higher again in heat, dry spells and heatwaves. Forecasts and
+heatwave warnings come from the Bureau of Meteorology. It asks you first, then does it
+itself. Mowing times stay in the Dreame app.
 
 Based on [edbyford/ha-navimow-weather-cut-height](https://github.com/edbyford/ha-navimow-weather-cut-height),
-rewritten for a Dreame A1 and a warm-season lawn in Townsville. The seasonal rules
-(autumn raise, winter pause) are gone and the rules are per zone. Notes and sources:
+rewritten for a Dreame A1 and a warm-season lawn in Townsville. The temperate seasonal
+rules (autumn raise, winter pause) are replaced by the tropical wet and dry seasons, and
+the rules are per zone. Notes and sources:
 [`docs/tropical-cut-height-notes.md`](docs/tropical-cut-height-notes.md).
 
 > Shared as a reference for how I did it, not a turnkey add-on. Change the entity names
@@ -19,13 +22,16 @@ added to every zone's baseline:
 
 | Condition | Default rule | Offset | Raised Lawn |
 | --- | --- | --- | --- |
-| Normal | | 0 | 3.5 cm |
-| After heavy rain | 25 mm in 3 days (or 24 h at your gauge) during the growing season (7-day mean 23 °C or more); held 5 days | -0.5 | 3.0 cm |
-| Heat | max 34 °C or more today or in the next 2 days; held 3 days | +0.5 | 4.0 cm |
+| Normal (wet season) | October to April with none of the below | 0 | 3.5 cm |
+| After heavy rain | wet season only: 25 mm in 3 days (or 24 h at your gauge) with a 7-day mean of 23 °C or more; held 5 days | -0.5 | 3.0 cm |
+| Dry season | May to September with none of the rules below | +0.5 | 4.0 cm |
+| Heat | BOM forecast max 34 °C or more today or in the next 2 days; held 3 days | +0.5 | 4.0 cm |
 | Dry spell | Smart Irrigation water balance -15 mm or lower, until it is back to 0 | +0.5 | 4.0 cm |
-| Heatwave | 3-day mean of (max + min) / 2 at 29.5 °C or more (Bureau of Meteorology style); held 3 days | +1.0 | 4.5 cm |
+| Heatwave | a BOM heatwave warning for your area, or a 3-day mean of (max + min) / 2 at 29.5 °C or more; held 3 days | +1.0 | 4.5 cm |
 
-- Heatwave beats heat or dry, which beat heavy rain.
+- Seasons are the Bureau of Meteorology's for northern Australia: wet 1 October to
+  30 April, dry 1 May to 30 September.
+- Heatwave beats heat or dry spell, which beat heavy rain, which beats the dry season.
 - **Raise at once, lower slowly:** one 0.5 cm step at most every 2 days.
 - Targets stay on the A1's 3.0 to 7.0 cm range, in 0.5 cm steps.
 - Every threshold and offset is a helper you can change from the dashboard.
@@ -85,9 +91,15 @@ automations as `switch.cut_height_smart`.
 
 ## Weather
 
-Daily data from [Open-Meteo](https://open-meteo.com/) (free, no key) for your Home
-zone's coordinates: the past 21 days (temperature, rain, evapotranspiration) and 6 days of
-forecast. No location is stored in these files; the URL is built from `zone.home`.
+- **Bureau of Meteorology** (the `bureau_of_meteorology` integration): the daily
+  forecast for the lawn's location supplies the max and min for today and the days
+  ahead, and its warnings sensor flags a heatwave warning. On the day I set this up BOM
+  had 31 °C for the next few days where Open-Meteo had 29.6 to 30.5 °C.
+- **[Open-Meteo](https://open-meteo.com/)** (free, no key) supplies what BOM's
+  integration doesn't: the past 21 days of temperature, rain and evapotranspiration,
+  and a forecast fallback. No location is stored in these files; the URL is built from
+  `zone.home`.
+- **Your own gauge and Smart Irrigation**, as below.
 
 ## Tested
 

@@ -10,8 +10,9 @@
 #                                          changing them does not move or change the mower)
 #   number.a1_selected_zone_mowing_height  height of the zone in scope (read back)
 #   notify.mobile_app_iphone_17            your phone
-# and, in custom_templates/cut_height.jinja, the zone list and the two optional sources
-# (Smart Irrigation water balance and your own rain gauge).
+#   weather.belgian_gardens                BOM forecast (bureau_of_meteorology integration)
+# and, in custom_templates/cut_height.jinja, the zone list and the optional sources
+# (BOM warnings, Smart Irrigation water balance and your own rain gauge).
 #
 # Scheduling stays in the Dreame app. An hour before each scheduled mow (read from the
 # calendar), the plan is fixed and each zone's height is read; any change is sent to your
@@ -168,6 +169,21 @@ template:
               entity_id: input_number.cut_height_heatwave_offset
             data:
               value: "{{ value }}"
+      - name: Dry season
+        unique_id: cut_height_number_dry_season_offset
+        default_entity_id: number.cut_height_dry_season_offset
+        icon: mdi:weather-sunny
+        unit_of_measurement: "cm"
+        min: 0
+        max: 2
+        step: 0.5
+        state: "{{ states('input_number.cut_height_dry_season_offset') }}"
+        set_value:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.cut_height_dry_season_offset
+            data:
+              value: "{{ value }}"
       - name: Hot day from
         unique_id: cut_height_number_hot_max_temp
         default_entity_id: number.cut_height_hot_max_temp
@@ -244,6 +260,36 @@ template:
             data:
               value: "{{ value }}"
 
+  # BOM daily forecast for the lawn (bureau_of_meteorology integration), refreshed every
+  # 30 minutes. Its max/min replace Open-Meteo's for today and the days ahead.
+  - triggers:
+      - trigger: homeassistant
+        event: start
+      - trigger: event
+        event_type: event_template_reloaded
+      - trigger: time_pattern
+        minutes: "/30"
+    actions:
+      - action: weather.get_forecasts
+        target:
+          entity_id: weather.belgian_gardens
+        data:
+          type: daily
+        response_variable: bom
+    sensor:
+      - name: Cut height BOM forecast
+        unique_id: cut_height_bom_forecast
+        default_entity_id: sensor.cut_height_bom_forecast
+        icon: mdi:weather-partly-cloudy
+        state: "{{ bom['weather.belgian_gardens'].forecast | count }}"
+        attributes:
+          forecast: >
+            {% set ns = namespace(out=[]) %}
+            {% for f in bom['weather.belgian_gardens'].forecast %}
+              {% set ns.out = ns.out + [dict(date=f.datetime[:10], max=f.temperature, min=f.templow, rain=f.precipitation)] %}
+            {% endfor %}
+            {{ ns.out }}
+
 input_number:
   # Each zone's usual height (cm). Add one per zone listed in cut_height_zones().
   cut_height_baseline_zone_1:
@@ -275,6 +321,13 @@ input_number:
     step: 0.5
     unit_of_measurement: cm
     icon: mdi:thermometer-alert
+  cut_height_dry_season_offset:
+    name: Cut height offset in the dry season (May-Sep)
+    min: 0
+    max: 2
+    step: 0.5
+    unit_of_measurement: cm
+    icon: mdi:weather-sunny
   # Weather thresholds.
   cut_height_grow_temp:
     name: Cut height growing season above (7-day mean)
