@@ -64,6 +64,25 @@ lawn is cut dry, then watered.
   downpour the model missed still counts.
 - Both are optional. If either sensor is unavailable, the plan falls back to Open-Meteo.
 
+## On the mower card
+
+`dashboards/cut_height_card.yaml` is the Dreame
+[lawn-mower-card](https://github.com/EvotecIT/lovelace-lawn-mower-card) with the
+smart settings added:
+
+- **Zone choice:** left to its own discovery, the card only shows the zone selector
+  when the mowing action is "Zone". On "All area" you can't pick which zone's height
+  you're editing. Listing the zone selector and the zone height explicitly keeps
+  them in the Mower settings sheet.
+- **Smart cut height settings** in the same sheet: an on/off switch, each zone's usual
+  height, the three offsets and the main thresholds.
+- **Tiles** for the weather condition, the target height and the next pending change,
+  plus a **Skip height changes 2 days** button.
+
+The card shows only number, switch, select and time entities as controls, so the
+package mirrors its `input_number` helpers as `number.cut_height_*` entities, and the
+automations as `switch.cut_height_smart`.
+
 ## Weather
 
 Daily data from [Open-Meteo](https://open-meteo.com/) (free, no key) for your Home
@@ -87,7 +106,8 @@ forecast. No location is stored in these files; the URL is built from `zone.home
 - `custom_templates/cut_height.jinja`: the zone list and the decision macros.
 - `reference/plan.py`: the same decision in Python (the test oracle).
 - `tools/replay.py`: replay over past weather.
-- `dashboards/cut_height_card.yaml`: an entities card.
+- `dashboards/cut_height_card.yaml`: the lawn-mower-card with zone choice and the
+  smart settings.
 - `docs/tropical-cut-height-notes.md`: the rules, their reasoning and sources.
 - `scripts/`: SSH/API helper and a deploy script (set `HA_IP`, `HA_KEY`, `HA_TOKEN`).
 
@@ -116,6 +136,12 @@ forecast. No location is stored in these files; the URL is built from `zone.home
    check the app shows the new height for that zone.
 
 `scripts/deploy.sh` does steps 4 and 5 if you have the Terminal & SSH app.
+
+The `input_*` helpers can also be created in the UI (Settings > Devices & services >
+Helpers) instead of in the package, as long as their entity IDs match. Remove their
+sections from the package if you do, or Home Assistant will report duplicates. That's how
+they're set up on my install, because the tool I deployed with can't write `input_*`
+keys to package files.
 
 ## Test
 

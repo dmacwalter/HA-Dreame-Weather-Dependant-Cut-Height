@@ -43,6 +43,8 @@ rest:
           - et0_fao_evapotranspiration
 
 template:
+  # Plan, readable summaries, and number/switch mirrors of the helpers so the
+  # lawn-mower-card can show them as controls (it only renders number/switch/select/time).
   - sensor:
       - name: Cut height plan
         unique_id: cut_height_plan
@@ -50,7 +52,6 @@ template:
         availability: >
           {% from 'cut_height.jinja' import cut_height_plan_live %}
           {{ 'error' not in (cut_height_plan_live() | from_json) }}
-        # State: the weather condition (normal, after heavy rain, heat, dry spell, heatwave).
         state: >
           {% from 'cut_height.jinja' import cut_height_plan_live %}
           {{ (cut_height_plan_live() | from_json).why }}
@@ -61,7 +62,6 @@ template:
           t7: >
             {% from 'cut_height.jinja' import cut_height_plan_live %}
             {{ (cut_height_plan_live() | from_json).t7 }}
-          # Each zone's target height (cm), before any step-down limit.
           targets: >
             {% from 'cut_height.jinja' import cut_height_plan_live, cut_height_zones, cut_height_zone_want %}
             {% set plan = cut_height_plan_live() | from_json %}
@@ -70,9 +70,179 @@ template:
               {% set ns.out = dict(ns.out, **{z.option: cut_height_zone_want(plan.offset, states(z.baseline)) | float}) %}
             {% endfor %}
             {{ ns.out }}
+          targets_text: >
+            {% from 'cut_height.jinja' import cut_height_plan_live, cut_height_zones, cut_height_zone_want %}
+            {% set plan = cut_height_plan_live() | from_json %}
+            {% set ns = namespace(out=[]) %}
+            {% for z in cut_height_zones() | from_json %}
+              {% set ns.out = ns.out + [z.option | regex_replace('\s*\(#\d+\)$', '') ~ ' ' ~ (cut_height_zone_want(plan.offset, states(z.baseline)) | float) ~ ' cm'] %}
+            {% endfor %}
+            {{ ns.out | join(', ') }}
           plan: >
             {% from 'cut_height.jinja' import cut_height_plan_live %}
             {{ cut_height_plan_live() | from_json }}
+      - name: Cut height next change
+        unique_id: cut_height_next_change
+        default_entity_id: sensor.cut_height_next_change
+        icon: mdi:swap-vertical
+        state: >
+          {% set p = states('input_text.cut_height_pending') | from_json(default=[]) %}
+          {% if p | count == 0 %}None pending
+          {% else %}{% for c in p %}{{ c.option | regex_replace('\s*\(#\d+\)$', '') }} {{ c['from'] }} → {{ c.to }} cm{{ ', ' if not loop.last }}{% endfor %}{% endif %}
+  - switch:
+      - name: Smart cut height
+        unique_id: cut_height_smart_switch
+        default_entity_id: switch.cut_height_smart
+        icon: mdi:robot-mower-outline
+        state: "{{ is_state('automation.cut_height_check_before_mowing', 'on') }}"
+        turn_on:
+          - action: automation.turn_on
+            target:
+              entity_id:
+                - automation.cut_height_check_before_mowing
+                - automation.cut_height_apply
+        turn_off:
+          - action: automation.turn_off
+            target:
+              entity_id:
+                - automation.cut_height_check_before_mowing
+                - automation.cut_height_apply
+  - number:
+      - name: Raised Lawn usual height
+        unique_id: cut_height_number_baseline_zone_1
+        default_entity_id: number.cut_height_baseline_zone_1
+        icon: mdi:target
+        unit_of_measurement: "cm"
+        min: 3
+        max: 7
+        step: 0.5
+        state: "{{ states('input_number.cut_height_baseline_zone_1') }}"
+        set_value:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.cut_height_baseline_zone_1
+            data:
+              value: "{{ value }}"
+      - name: After heavy rain
+        unique_id: cut_height_number_rain_offset
+        default_entity_id: number.cut_height_rain_offset
+        icon: mdi:weather-pouring
+        unit_of_measurement: "cm"
+        min: -2
+        max: 0
+        step: 0.5
+        state: "{{ states('input_number.cut_height_rain_offset') }}"
+        set_value:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.cut_height_rain_offset
+            data:
+              value: "{{ value }}"
+      - name: Heat or dry spell
+        unique_id: cut_height_number_hot_offset
+        default_entity_id: number.cut_height_hot_offset
+        icon: mdi:weather-sunny-alert
+        unit_of_measurement: "cm"
+        min: 0
+        max: 2
+        step: 0.5
+        state: "{{ states('input_number.cut_height_hot_offset') }}"
+        set_value:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.cut_height_hot_offset
+            data:
+              value: "{{ value }}"
+      - name: Heatwave
+        unique_id: cut_height_number_heatwave_offset
+        default_entity_id: number.cut_height_heatwave_offset
+        icon: mdi:thermometer-alert
+        unit_of_measurement: "cm"
+        min: 0
+        max: 3
+        step: 0.5
+        state: "{{ states('input_number.cut_height_heatwave_offset') }}"
+        set_value:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.cut_height_heatwave_offset
+            data:
+              value: "{{ value }}"
+      - name: Hot day from
+        unique_id: cut_height_number_hot_max_temp
+        default_entity_id: number.cut_height_hot_max_temp
+        icon: mdi:thermometer-high
+        unit_of_measurement: "°C"
+        min: 28
+        max: 42
+        step: 0.5
+        state: "{{ states('input_number.cut_height_hot_max_temp') }}"
+        set_value:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.cut_height_hot_max_temp
+            data:
+              value: "{{ value }}"
+      - name: Heatwave 3-day mean from
+        unique_id: cut_height_number_heatwave_temp
+        default_entity_id: number.cut_height_heatwave_temp
+        icon: mdi:thermometer-alert
+        unit_of_measurement: "°C"
+        min: 24
+        max: 36
+        step: 0.5
+        state: "{{ states('input_number.cut_height_heatwave_temp') }}"
+        set_value:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.cut_height_heatwave_temp
+            data:
+              value: "{{ value }}"
+      - name: Heavy rain from
+        unique_id: cut_height_number_heavy_rain
+        default_entity_id: number.cut_height_heavy_rain
+        icon: mdi:weather-pouring
+        unit_of_measurement: "mm"
+        min: 5
+        max: 150
+        step: 5
+        state: "{{ states('input_number.cut_height_heavy_rain') }}"
+        set_value:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.cut_height_heavy_rain
+            data:
+              value: "{{ value }}"
+      - name: Growing season from
+        unique_id: cut_height_number_grow_temp
+        default_entity_id: number.cut_height_grow_temp
+        icon: mdi:sprout
+        unit_of_measurement: "°C"
+        min: 15
+        max: 30
+        step: 0.5
+        state: "{{ states('input_number.cut_height_grow_temp') }}"
+        set_value:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.cut_height_grow_temp
+            data:
+              value: "{{ value }}"
+      - name: Dry at water balance
+        unique_id: cut_height_number_dry_bucket
+        default_entity_id: number.cut_height_dry_bucket
+        icon: mdi:water-minus
+        unit_of_measurement: "mm"
+        min: -60
+        max: 0
+        step: 1
+        state: "{{ states('input_number.cut_height_dry_bucket') }}"
+        set_value:
+          - action: input_number.set_value
+            target:
+              entity_id: input_number.cut_height_dry_bucket
+            data:
+              value: "{{ value }}"
 
 input_number:
   # Each zone's usual height (cm). Add one per zone listed in cut_height_zones().
@@ -263,6 +433,26 @@ script:
               message: "{{ message }}"
               data:
                 tag: cut_height
+
+  cut_height_skip:
+    alias: Cut height - skip 2 days
+    description: Hold all cut-height changes for 2 days and drop anything pending.
+    mode: single
+    icon: mdi:calendar-remove
+    sequence:
+      - action: input_datetime.set_datetime
+        target:
+          entity_id: input_datetime.cut_height_skip_until
+        data:
+          datetime: "{{ (now() + timedelta(days=2)).strftime('%Y-%m-%d %H:%M:%S') }}"
+      - action: input_text.set_value
+        target:
+          entity_id: input_text.cut_height_pending
+        data:
+          value: "[]"
+      - action: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.cut_height_apply_due
 
 automation:
   - id: cut_height_check

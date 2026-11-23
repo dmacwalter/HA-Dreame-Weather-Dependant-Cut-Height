@@ -1,36 +1,60 @@
-# An entities card for the cut height. Paste into a dashboard (Edit > Add card > Manual).
-# number.a1_selected_zone_mowing_height shows the zone currently in Home Assistant's scope
-# (select.a1_zone_2), which the scripts leave on the last zone they read.
-type: entities
-title: Cut height
-entities:
+# The Dreame lawn-mower-card (EvotecIT/lovelace-lawn-mower-card) with zone choice and
+# the smart cut-height settings added. Paste into a dashboard (Edit > Add card > Manual),
+# or merge the keys below the comment into your existing card.
+#
+# Why control_entities: with automatic discovery the card only shows the zone selector
+# when the mowing action is "Zone", so on "All area" there is no way to pick which zone's
+# height you're editing. Listing the zone selector and the zone height explicitly keeps
+# them in the Mower settings sheet whatever the action is. controls_mode: append keeps
+# the card's own discovered controls (schedules, device settings) after these.
+#
+# The card renders only number, switch, select and time entities as controls, so the
+# package mirrors its input_number helpers as number.cut_height_* entities, and the
+# automations as switch.cut_height_smart.
+type: custom:lawn-mower-card
+entity: lawn_mower.a1_2
+layout: hero
+hero_layout: cinematic
+grid_options:
+  columns: full
+battery_entity: sensor.a1_battery_2
+map_entity: camera.a1_map
+progress_entity: sensor.a1_mowing_progress_2
+coverage_entity: sensor.a1_runtime_current_area
+coverage_total_entity: sensor.a1_runtime_total_area
+# --- added for zone choice and smart cut height ---
+controls_mode: append
+control_entities:
+  - select.a1_map_2
+  - select.a1_zone_2
+  - number.a1_selected_zone_mowing_height
+  - switch.cut_height_smart
+  - number.cut_height_baseline_zone_1
+  - number.cut_height_rain_offset
+  - number.cut_height_hot_offset
+  - number.cut_height_heatwave_offset
+  - number.cut_height_hot_max_temp
+  - number.cut_height_heatwave_temp
+  - number.cut_height_heavy_rain
+  - number.cut_height_grow_temp
+  - number.cut_height_dry_bucket
+tiles:
   - entity: sensor.cut_height_plan
-    name: Weather condition
-  - type: attribute
-    entity: sensor.cut_height_plan
-    attribute: targets
-    name: Target per zone (cm)
-  - type: attribute
-    entity: sensor.cut_height_plan
-    attribute: offset
-    name: Offset
-    suffix: cm
-  - type: attribute
-    entity: sensor.cut_height_plan
-    attribute: t7
-    name: 7-day mean
-    suffix: °C
-  - entity: select.a1_zone_2
-    name: Zone in scope
-  - entity: number.a1_selected_zone_mowing_height
-    name: Its height now
-  - entity: calendar.a1_schedule
-    name: Next mow (asks an hour before)
-  - entity: input_text.cut_height_pending
-    name: Pending changes
-  - entity: input_number.cut_height_baseline_zone_1
-  - entity: input_boolean.cut_height_dry_spell
-  - entity: input_datetime.cut_height_rain_until
-  - entity: input_datetime.cut_height_heat_until
-  - entity: input_datetime.cut_height_heatwave_until
-  - entity: input_datetime.cut_height_skip_until
+    label: Weather
+    icon: mdi:grass
+    show_unavailable: true
+  - entity: sensor.cut_height_plan
+    attribute: targets_text
+    label: Target height
+    icon: mdi:ruler
+  - entity: sensor.cut_height_next_change
+    label: Next change
+    icon: mdi:swap-vertical
+actions:
+  - type: service
+    label: Skip height changes 2 days
+    icon: mdi:calendar-remove
+    service: script.turn_on
+    service_data:
+      entity_id: script.cut_height_skip
+    confirmation: Hold cut-height changes for 2 days?
