@@ -1,0 +1,142 @@
+{#- Weather-dependent cut height for a Dreame mower: the decision.
+    cut_height_plan() and cut_height_zone_next() are pure: they only read their
+    arguments, so they can be tested against past weather. reference/plan.py is the same
+    logic in Python, and tests/test_parity_plan_ha.py checks the two agree.
+    cut_height_zones() is the list of zones this manages, and cut_height_plan_live()
+    gathers the live inputs. Notes and sources: docs/tropical-cut-height-notes.md.
+
+    Heights are in centimetres, as the Dreame integration reports them.
+-#}
+
+{#- The zones to manage. One entry per zone:
+      id       the Dreame zone id (the "#n" in the zone's name in select.a1_zone_2)
+      option   the zone's option in select.a1_zone_2, exactly as shown
+      baseline the input_number holding that zone's usual height
+    To add the orchard, add an input_number.cut_height_baseline_zone_2 to the package
+    and a second entry here:
+      dict(id=2, option='Orchard (#2)', baseline='input_number.cut_height_baseline_zone_2')
+-#}
+{% macro cut_height_zones() -%}
+{{ [
+  dict(id=1, option='Raised Lawn (#1)', baseline='input_number.cut_height_baseline_zone_1'),
+] | to_json }}
+{%- endmacro %}
+
+{#- d      Open-Meteo daily arrays (temperature_2m_mean, temperature_2m_max,
+           temperature_2m_min, precipitation_sum, et0_fao_evapotranspiration),
+           at least 20 days before today
+    i      index of today in d.time
+    today  'YYYY-MM-DD'; rain_until, heat_until, wave_until, last_lower likewise
+    dry    the dry-spell latch (boolean)
+    bucket Smart Irrigation water balance (mm, negative = deficit) or none
+    local_rain  rain at your own gauge in the last 24 h (mm) or none
+    p      tunables: grow, heavy_rain, hot_max, t95, dry_bucket, dry_deficit,
+           rain_offset, hot_offset, wave_offset
+-#}
+{% macro cut_height_plan(d, i, today, rain_until, heat_until, wave_until, dry, last_lower, bucket, local_rain, p) -%}
+{%- set tm = d.temperature_2m_mean | map('float', 0) | list -%}
+{%- set tx = d.temperature_2m_max | map('float', 0) | list -%}
+{%- set tn = d.temperature_2m_min | map('float', 0) | list -%}
+{%- set rain = d.precipitation_sum | map('float', 0) | list -%}
+{%- set et0 = d.et0_fao_evapotranspiration | map('float', 0) | list -%}
+{%- set n = tm | length -%}
+{%- set t7 = (tm[i-6:i+1] | sum) / 7 -%}
+{%- set growing = t7 >= p.grow -%}
+{%- set rain3 = rain[i-2:i+1] | sum -%}
+{%- set deficit = (et0[i-20:i+1] | sum) - (rain[i-20:i+1] | sum) -%}
+
+{#- heavy rain while growing: hold the low height for 5 days -#}
+{%- set heavy = [rain3, local_rain | float(0)] | max >= p.heavy_rain -%}
+{%- set rain_until2 = rain_until -%}
+{%- if heavy and growing %}{% set rain_until2 = (as_datetime(today) + timedelta(days=5)).date() | string %}{% endif -%}
+
+{#- heat: a max >= hot_max today..+2; heatwave: a 3-day mean of (max + min) / 2 >= t95
+    for any 3-day window ending today..+2 -#}
+{%- set ns = namespace(hot=false, ehi=none) -%}
+{%- for k in range(i, [i+3, n] | min) -%}
+  {%- if tx[k] >= p.hot_max %}{% set ns.hot = true %}{% endif -%}
+  {%- set m = ((tx[k-2] + tn[k-2]) / 2 + (tx[k-1] + tn[k-1]) / 2 + (tx[k] + tn[k]) / 2) / 3 -%}
+  {%- if ns.ehi is none or m - p.t95 > ns.ehi %}{% set ns.ehi = m - p.t95 %}{% endif -%}
+{%- endfor -%}
+{%- set wave_ahead = ns.ehi >= 0 -%}
+{%- set heat_until2 = heat_until -%}
+{%- set wave_until2 = wave_until -%}
+{%- if ns.hot or wave_ahead %}{% set heat_until2 = (as_datetime(today) + timedelta(days=3)).date() | string %}{% endif -%}
+{%- if wave_ahead %}{% set wave_until2 = (as_datetime(today) + timedelta(days=3)).date() | string %}{% endif -%}
+
+{#- dry spell: from the Smart Irrigation water balance, else 21-day ET0 minus rain -#}
+{%- set dry2 = dry -%}
+{%- if bucket is number -%}
+  {%- if bucket <= p.dry_bucket %}{% set dry2 = true %}{% elif bucket >= 0 %}{% set dry2 = false %}{% endif -%}
+{%- else -%}
+  {%- if deficit >= p.dry_deficit %}{% set dry2 = true %}{% endif -%}
+  {%- if dry2 and rain3 >= 10 %}{% set dry2 = false %}{% endif -%}
+{%- endif -%}
+
+{%- set wave = today <= wave_until2 -%}
+{%- set hot = today <= heat_until2 -%}
+{%- set wet = growing and today <= rain_until2 -%}
+{%- if wave -%}
+  {%- set why = 'heatwave' %}{% set offset = p.wave_offset -%}
+{%- elif hot or dry2 -%}
+  {%- set why = 'heat' if hot else 'dry spell' %}{% set offset = p.hot_offset -%}
+{%- elif wet -%}
+  {%- set why = 'after heavy rain' %}{% set offset = p.rain_offset -%}
+{%- else -%}
+  {%- set why = 'normal' %}{% set offset = 0.0 -%}
+{%- endif -%}
+{%- set since_lower = (as_datetime(today) - as_datetime(last_lower)).days -%}
+{{ dict(t7=t7 | round(1), rain3=rain3 | round(1), deficit=deficit | round(1), ehi=ns.ehi | round(1),
+        growing=growing, heavy=heavy, hot=hot, wave=wave, dry=dry2,
+        rain_until=rain_until2, heat_until=heat_until2, wave_until=wave_until2,
+        offset=offset | float, why=why, can_lower=since_lower >= 2) | to_json }}
+{%- endmacro %}
+
+{#- The zone's target: baseline + offset on the 0.5 cm grid (half up), 3.0 to 7.0 cm -#}
+{% macro cut_height_zone_want(offset, baseline) -%}
+{{ [7.0, [3.0, (((baseline | float + offset | float) * 2 + 0.5) | round(0, 'floor')) / 2] | max] | min }}
+{%- endmacro %}
+
+{#- The zone's next height: raise at once; lower one 0.5 cm step, at most every 2 days -#}
+{% macro cut_height_zone_next(offset, can_lower, baseline, height) -%}
+{%- set want = cut_height_zone_want(offset, baseline) | float -%}
+{%- set h = height | float -%}
+{%- if want > h -%}{{ want }}
+{%- elif want < h and can_lower -%}{{ [want, h - 0.5] | max }}
+{%- else -%}{{ h }}
+{%- endif -%}
+{%- endmacro %}
+
+{#- Live inputs. Replace the two optional sources if yours differ:
+      sensor.smart_irrigation_raised_lawn_bucket  Smart Irrigation water balance (mm)
+      sensor.gw3000c_24h_rain_piezo               your own rain gauge, last 24 h (mm)
+    Either can be missing or unavailable: the plan falls back to Open-Meteo. -#}
+{% macro cut_height_plan_live() -%}
+{%- set d = states.sensor.cut_height_weather.attributes if states.sensor.cut_height_weather else {} -%}
+{%- set today = now().date() | string -%}
+{%- set ns = namespace(i=-1) -%}
+{%- for t in d.time | default([]) %}{% if t == today %}{% set ns.i = loop.index0 %}{% endif %}{% endfor -%}
+{%- if ns.i < 20 -%}
+{{ dict(error='no weather for today') | to_json }}
+{%- else -%}
+{%- set p = dict(
+    grow=states('input_number.cut_height_grow_temp') | float,
+    heavy_rain=states('input_number.cut_height_heavy_rain') | float,
+    hot_max=states('input_number.cut_height_hot_max_temp') | float,
+    t95=states('input_number.cut_height_heatwave_temp') | float,
+    dry_bucket=states('input_number.cut_height_dry_bucket') | float,
+    dry_deficit=states('input_number.cut_height_dry_deficit') | float,
+    rain_offset=states('input_number.cut_height_rain_offset') | float,
+    hot_offset=states('input_number.cut_height_hot_offset') | float,
+    wave_offset=states('input_number.cut_height_heatwave_offset') | float) -%}
+{%- set bucket = states('sensor.smart_irrigation_raised_lawn_bucket') | float(none) -%}
+{%- set local_rain = states('sensor.gw3000c_24h_rain_piezo') | float(none) -%}
+{{ cut_height_plan(d, ns.i, today,
+             states('input_datetime.cut_height_rain_until'),
+             states('input_datetime.cut_height_heat_until'),
+             states('input_datetime.cut_height_heatwave_until'),
+             is_state('input_boolean.cut_height_dry_spell', 'on'),
+             states('input_datetime.cut_height_last_lower'),
+             bucket, local_rain, p) }}
+{%- endif -%}
+{%- endmacro %}

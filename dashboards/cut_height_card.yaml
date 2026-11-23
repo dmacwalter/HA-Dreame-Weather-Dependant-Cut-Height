@@ -1,0 +1,36 @@
+# An entities card for the cut height. Paste into a dashboard (Edit > Add card > Manual).
+# number.a1_selected_zone_mowing_height shows the zone currently in Home Assistant's scope
+# (select.a1_zone_2), which the scripts leave on the last zone they read.
+type: entities
+title: Cut height
+entities:
+  - entity: sensor.cut_height_plan
+    name: Weather condition
+  - type: attribute
+    entity: sensor.cut_height_plan
+    attribute: targets
+    name: Target per zone (cm)
+  - type: attribute
+    entity: sensor.cut_height_plan
+    attribute: offset
+    name: Offset
+    suffix: cm
+  - type: attribute
+    entity: sensor.cut_height_plan
+    attribute: t7
+    name: 7-day mean
+    suffix: °C
+  - entity: select.a1_zone_2
+    name: Zone in scope
+  - entity: number.a1_selected_zone_mowing_height
+    name: Its height now
+  - entity: calendar.a1_schedule
+    name: Next mow (asks an hour before)
+  - entity: input_text.cut_height_pending
+    name: Pending changes
+  - entity: input_number.cut_height_baseline_zone_1
+  - entity: input_boolean.cut_height_dry_spell
+  - entity: input_datetime.cut_height_rain_until
+  - entity: input_datetime.cut_height_heat_until
+  - entity: input_datetime.cut_height_heatwave_until
+  - entity: input_datetime.cut_height_skip_until
