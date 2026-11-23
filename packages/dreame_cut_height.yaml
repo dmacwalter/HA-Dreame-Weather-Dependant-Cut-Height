@@ -93,7 +93,7 @@ template:
           {% if p | count == 0 %}None pending
           {% else %}{% for c in p %}{{ c.option | regex_replace('\s*\(#\d+\)$', '') }} {{ c['from'] }} → {{ c.to }} cm{{ ', ' if not loop.last }}{% endfor %}{% endif %}
   - switch:
-      - name: Smart cut height
+      - name: Smart cut height (master)
         unique_id: cut_height_smart_switch
         default_entity_id: switch.cut_height_smart
         icon: mdi:robot-mower-outline
@@ -332,10 +332,99 @@ template:
             {% endfor %}
             {{ ns.out }}
 
+  # Which zones are managed, and a switch per zone for the lawn-mower-card.
+  - sensor:
+      - name: Cut height managed zones
+        unique_id: cut_height_managed_zones
+        default_entity_id: sensor.cut_height_managed_zones
+        icon: mdi:texture-box
+        state: >
+          {% from 'cut_height.jinja' import cut_height_zones %}
+          {% set z = cut_height_zones() | from_json | map(attribute='name') | list %}
+          {{ z | join(', ') if z else 'None' }}
+        attributes:
+          count: >
+            {% from 'cut_height.jinja' import cut_height_zones %}
+            {{ cut_height_zones() | from_json | count }}
+  - switch:
+      - name: Smart cut height Raised Lawn
+        unique_id: cut_height_zone_1_switch
+        default_entity_id: switch.cut_height_zone_1
+        icon: mdi:texture-box
+        state: "{{ is_state('input_boolean.cut_height_manage_zone_1', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.cut_height_manage_zone_1
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.cut_height_manage_zone_1
+      - name: Smart cut height Orchard
+        unique_id: cut_height_zone_2_switch
+        default_entity_id: switch.cut_height_zone_2
+        icon: mdi:texture-box
+        state: "{{ is_state('input_boolean.cut_height_manage_zone_2', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.cut_height_manage_zone_2
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.cut_height_manage_zone_2
+      - name: Smart cut height Zone 3
+        unique_id: cut_height_zone_3_switch
+        default_entity_id: switch.cut_height_zone_3
+        icon: mdi:texture-box
+        state: "{{ is_state('input_boolean.cut_height_manage_zone_3', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.cut_height_manage_zone_3
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.cut_height_manage_zone_3
+      - name: Smart cut height Zone 4
+        unique_id: cut_height_zone_4_switch
+        default_entity_id: switch.cut_height_zone_4
+        icon: mdi:texture-box
+        state: "{{ is_state('input_boolean.cut_height_manage_zone_4', 'on') }}"
+        turn_on:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: input_boolean.cut_height_manage_zone_4
+        turn_off:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: input_boolean.cut_height_manage_zone_4
+
 input_number:
   # Each zone's usual height (cm). Add one per zone listed in cut_height_zones().
   cut_height_baseline_zone_1:
     name: Cut height baseline Raised Lawn
+    min: 3
+    max: 7
+    step: 0.5
+    unit_of_measurement: cm
+    icon: mdi:target
+  cut_height_baseline_zone_2:
+    name: Cut height baseline Orchard
+    min: 3
+    max: 7
+    step: 0.5
+    unit_of_measurement: cm
+    icon: mdi:target
+  cut_height_baseline_zone_3:
+    name: Cut height baseline Zone 3
+    min: 3
+    max: 7
+    step: 0.5
+    unit_of_measurement: cm
+    icon: mdi:target
+  cut_height_baseline_zone_4:
+    name: Cut height baseline Zone 4
     min: 3
     max: 7
     step: 0.5
@@ -409,6 +498,19 @@ input_number:
     unit_of_measurement: mm
 
 input_boolean:
+  # Which zones smart cut height may read and change (Raised Lawn on, the rest off).
+  cut_height_manage_zone_1:
+    name: Cut height manage Raised Lawn
+    icon: mdi:texture-box
+  cut_height_manage_zone_2:
+    name: Cut height manage Orchard
+    icon: mdi:texture-box
+  cut_height_manage_zone_3:
+    name: Cut height manage Zone 3
+    icon: mdi:texture-box
+  cut_height_manage_zone_4:
+    name: Cut height manage Zone 4
+    icon: mdi:texture-box
   cut_height_dry_spell:
     name: Cut height dry spell
     icon: mdi:water-off

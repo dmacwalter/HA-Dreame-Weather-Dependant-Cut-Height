@@ -10,7 +10,7 @@
 #
 # The card renders only number, switch, select and time entities as controls, so the
 # package mirrors its input_number helpers as number.cut_height_* entities, and the
-# automations as switch.cut_height_smart.
+# automations as switch.cut_height_smart (master) and switch.cut_height_zone_N (per zone).
 type: custom:lawn-mower-card
 entity: lawn_mower.a1_2
 layout: hero
@@ -29,6 +29,10 @@ control_entities:
   - select.a1_zone_2
   - number.a1_selected_zone_mowing_height
   - switch.cut_height_smart
+  - switch.cut_height_zone_1
+  - switch.cut_height_zone_2
+  - switch.cut_height_zone_3
+  - switch.cut_height_zone_4
   - number.cut_height_baseline_zone_1
   - number.cut_height_rain_offset
   - number.cut_height_hot_offset
@@ -40,6 +44,9 @@ control_entities:
   - number.cut_height_grow_temp
   - number.cut_height_dry_bucket
 tiles:
+  - entity: sensor.cut_height_managed_zones
+    label: Smart cut height on
+    icon: mdi:texture-box
   - entity: sensor.cut_height_plan
     label: Weather
     icon: mdi:grass

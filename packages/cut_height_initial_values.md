@@ -6,7 +6,9 @@ Helpers, or `input_number.set_value`):
 
 | Helper | Value | Meaning |
 | --- | --- | --- |
+| `input_boolean.cut_height_manage_zone_1` | on | manage the Raised Lawn; zones 2 to 4 stay off |
 | `input_number.cut_height_baseline_zone_1` | 3.5 | Raised Lawn's usual height (cm) |
+| `input_number.cut_height_baseline_zone_2` to `_4` | the zone's current height | usual heights for the other zones, used only if switched on |
 | `input_number.cut_height_rain_offset` | -0.5 | added after heavy rain while growing (3.5 → 3.0) |
 | `input_number.cut_height_hot_offset` | 0.5 | added in heat or a dry spell (3.5 → 4.0) |
 | `input_number.cut_height_heatwave_offset` | 1.0 | added in a heatwave (3.5 → 4.5) |
@@ -23,12 +25,16 @@ New YAML `input_datetime`s start at **today**, not 1970. Set
 `input_datetime.cut_height_heatwave_until` and `input_datetime.cut_height_last_lower` to
 `1970-01-01`, or the first check will think there is a hold running.
 
-## Adding a zone
+## Choosing zones
 
-1. Add `cut_height_baseline_zone_2` (or the zone's id) under `input_number:` in the package.
-2. Add the zone to `cut_height_zones()` in `custom_templates/cut_height.jinja`, with its
-   option exactly as `select.a1_zone_2` shows it (for example `Orchard (#2)`).
-3. Reload custom templates and input numbers, then set the new baseline.
+All four zones are listed in `cut_height_all_zones()` in
+`custom_templates/cut_height.jinja`. Turn a zone's `input_boolean.cut_height_manage_zone_N`
+on to let smart cut height read and change it, off to leave it alone completely. The
+master switch (`switch.cut_height_smart`) turns the whole thing on or off.
+
+If your mower has a different number of zones, add or remove entries in
+`cut_height_all_zones()`, with each zone's option exactly as `select.a1_zone_2` shows it,
+plus a manage switch and a baseline helper per zone.
 
 The offsets apply to every zone. The dry-spell rule reads one Smart Irrigation water
 balance (the Raised Lawn's); point it at another zone's in `cut_height_plan_live()` if

@@ -8,18 +8,31 @@
     Heights are in centimetres, as the Dreame integration reports them.
 -#}
 
-{#- The zones to manage. One entry per zone:
+{#- The mower's zones. One entry per zone:
       id       the Dreame zone id (the "#n" in the zone's name in select.a1_zone_2)
       option   the zone's option in select.a1_zone_2, exactly as shown
+      name     how the zone is named on the dashboard
+      manage   the input_boolean that turns smart cut height on for this zone
       baseline the input_number holding that zone's usual height
-    To add the orchard, add an input_number.cut_height_baseline_zone_2 to the package
-    and a second entry here:
-      dict(id=2, option='Orchard (#2)', baseline='input_number.cut_height_baseline_zone_2')
+    cut_height_all_zones() lists every zone; cut_height_zones() only the ones whose
+    manage switch is on, and that is what the checks, plan and writes use. A zone that
+    is switched off is never read or written.
 -#}
-{% macro cut_height_zones() -%}
+{% macro cut_height_all_zones() -%}
 {{ [
-  dict(id=1, option='Raised Lawn (#1)', baseline='input_number.cut_height_baseline_zone_1'),
+  dict(id=1, option='Raised Lawn (#1)', name='Raised Lawn',
+       manage='input_boolean.cut_height_manage_zone_1', baseline='input_number.cut_height_baseline_zone_1'),
+  dict(id=2, option='Orchard (#2)', name='Orchard',
+       manage='input_boolean.cut_height_manage_zone_2', baseline='input_number.cut_height_baseline_zone_2'),
+  dict(id=3, option='Zone #3', name='Zone 3',
+       manage='input_boolean.cut_height_manage_zone_3', baseline='input_number.cut_height_baseline_zone_3'),
+  dict(id=4, option='Zone #4', name='Zone 4',
+       manage='input_boolean.cut_height_manage_zone_4', baseline='input_number.cut_height_baseline_zone_4'),
 ] | to_json }}
+{%- endmacro %}
+
+{% macro cut_height_zones() -%}
+{{ cut_height_all_zones() | from_json | selectattr('manage', 'is_state', 'on') | list | to_json }}
 {%- endmacro %}
 
 {#- d      Open-Meteo daily arrays (temperature_2m_mean, temperature_2m_max,

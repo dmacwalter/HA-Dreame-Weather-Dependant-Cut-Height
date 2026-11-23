@@ -17,8 +17,11 @@ the rules are per zone. Notes and sources:
 
 ## How it decides
 
-Each zone has a **baseline** (Raised Lawn: 3.5 cm). The weather picks an offset, which is
-added to every zone's baseline:
+**Zones are opt-in.** Each zone has its own switch and **usual height** (baseline).
+Only switched-on zones are read or changed; a zone that is off is never touched. On my
+mower only the Raised Lawn (3.5 cm) is on. A master switch turns the whole thing off.
+
+The weather picks an offset, which is added to the usual height of every managed zone:
 
 | Condition | Default rule | Offset | Raised Lawn |
 | --- | --- | --- | --- |
